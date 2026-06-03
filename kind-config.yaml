@@ -1,0 +1,23 @@
+# kind-config.yaml — configuração do cluster Kind para o aiops-lab
+# Cluster single-node (control-plane executa workloads) para economizar recursos,
+# dado que já existem outros clusters Kind no host.
+#
+# Criar:   kind create cluster --name aiops-lab --config kind-config.yaml
+# Deletar: kind delete cluster --name aiops-lab
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+nodes:
+  - role: control-plane
+    # Mapeamentos de porta para acesso via browser no host Windows/WSL2.
+    # hostPort → containerPort (NodePort do Service dentro do cluster).
+    extraPortMappings:
+      # Grafana
+      - containerPort: 30000
+        hostPort: 3000
+        protocol: TCP
+      # Prometheus — hostPort 9091 (9090 já ocupado por container prometheus standalone)
+      - containerPort: 30090
+        hostPort: 9091
+        protocol: TCP

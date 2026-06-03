@@ -1,0 +1,21 @@
+# Valores sensíveis — nunca commitar
+env/*.secret.yaml
+env/*.local.override.yaml
+*.secret
+*.token
+
+# Evidências de teste com dados sensíveis
+results/raw/
+
+# Ferramentas locais
+.helmfile-cache/
+.helm/
+*.tgz
+
+# Temporários de SO e editores
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/

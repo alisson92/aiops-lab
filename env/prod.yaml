@@ -1,0 +1,8 @@
+# env/prod.yaml — valores para o ambiente de produção (EKS)
+# ⚠️  NUNCA commitar valores reais aqui. Preencher via pipeline (CI/CD) ou Vault.
+
+namespace: aiops-lab
+storageClass: <EKS_STORAGECLASS_NAME>   # confirmar com time de infra antes do deploy
+ollamaEndpoint: http://ollama.aiops-lab.svc.cluster.local:11434
+grafanaAdminPassword: ""                # injetado via Secret externo no pipeline
+teamsWebhookUrl: ""                     # injetado via variável gerenciada centralmente

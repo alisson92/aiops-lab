@@ -1,0 +1,90 @@
+# helmfile.yaml — ponto central de gerenciamento de releases
+# Valores compartilhados entre charts ficam aqui; não hardcode em values.yaml individuais.
+# Uso:
+#   helmfile -e local sync                                    # sobe tudo no Kind
+#   helmfile -e local apply                                   # aplica diff (mais seguro)
+#   helmfile -e local -l name=kube-prometheus-stack sync      # sobe apenas um release
+
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: ollama-helm
+    url: https://helm.otwld.com/
+  - name: keephq
+    url: https://keephq.github.io/helm-charts
+  # 🔒 Tier B — k8sgpt-operator instala CRDs e ClusterRoles cluster-scoped.
+  # Requer aprovação explícita do cliente antes de qualquer deploy em produção.
+  - name: k8sgpt
+    url: https://charts.k8sgpt.ai
+  - name: robusta
+    url: https://robusta-charts.storage.googleapis.com
+
+environments:
+  local:
+    values:
+      - env/local.yaml
+  prod:
+    values:
+      - env/prod.yaml
+
+---
+
+releases:
+
+  # ─────────────────────────────────────────────────────────────
+  # Camada 2 — substrato de métricas e alertas (pré-requisito)
+  # ─────────────────────────────────────────────────────────────
+  - name: kube-prometheus-stack
+    namespace: "{{ .Values.namespace }}"
+    createNamespace: true
+    chart: prometheus-community/kube-prometheus-stack
+    version: "86.1.0"   # app: v0.91.0
+    values:
+      - charts/kube-prometheus-stack/values.yaml
+
+  # ─────────────────────────────────────────────────────────────
+  # Camada 3 — inferência LLM compartilhada (CPU-only, offline)
+  # ─────────────────────────────────────────────────────────────
+  - name: ollama
+    namespace: "{{ .Values.namespace }}"
+    chart: ollama-helm/ollama
+    version: "1.57.0"   # app: 0.24.0
+    values:
+      - charts/ollama/values.yaml
+    needs:
+      - kube-prometheus-stack
+
+  # ─────────────────────────────────────────────────────────────
+  # Candidatos AIOps — instalar individualmente na Fase 1.
+  # Habilitar apenas o candidato em avaliação; manter os demais comentados.
+  # ─────────────────────────────────────────────────────────────
+
+  - name: keep
+    namespace: "{{ .Values.namespace }}"
+    chart: keephq/keep
+    version: "0.1.96"   # app: 0.52.1
+    values:
+      - charts/keep/values.yaml
+    needs:
+      - kube-prometheus-stack
+
+  # 🔒 Tier B — k8sgpt-operator é o único chart oficial disponível.
+  # Instala CRDs (K8sGPT CRD) e ClusterRoles — não existe chart namespaced (Tier A) upstream.
+  # Para produção: empacotar no umbrella chart para aprovação única via GMUD.
+  - name: k8sgpt-operator
+    namespace: "{{ .Values.namespace }}"
+    chart: k8sgpt/k8sgpt-operator
+    version: "0.2.27"   # app: 0.2.25
+    values:
+      - charts/k8sgpt/values.yaml
+    needs:
+      - ollama
+
+  - name: holmesgpt
+    namespace: "{{ .Values.namespace }}"
+    chart: robusta/holmes
+    version: "0.31.1"   # app: 0.31.1
+    values:
+      - charts/holmesgpt/values.yaml
+    needs:
+      - ollama

@@ -1,0 +1,8 @@
+# env/local.yaml — valores para o ambiente local (Kind / WSL2)
+# ⚠️  Não commitar valores reais de webhook ou senhas neste arquivo.
+
+namespace: aiops-lab
+storageClass: standard           # Kind usa local-path-provisioner com StorageClass "standard"
+ollamaEndpoint: http://ollama.aiops-lab.svc.cluster.local:11434
+grafanaAdminPassword: admin      # seguro apenas em local; em prod use Secret externo
+teamsWebhookUrl: ""              # não usado em local; configure em prod

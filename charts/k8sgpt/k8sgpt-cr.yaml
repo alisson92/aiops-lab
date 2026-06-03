@@ -1,0 +1,21 @@
+# K8sGPT CR — configura o operator para analisar o cluster usando Ollama como backend LLM.
+# Aplicar APÓS o operator estar Running: kubectl apply -f charts/k8sgpt/k8sgpt-cr.yaml -n aiops-lab
+#
+# Resultados disponíveis em:
+#   kubectl get k8sgpt k8sgpt-lab -n aiops-lab -o yaml  →  .status.results[]
+apiVersion: core.k8sgpt.ai/v1alpha1
+kind: K8sGPT
+metadata:
+  name: k8sgpt-lab
+  namespace: aiops-lab
+spec:
+  ai:
+    enabled: true
+    model: gemma2:2b          # modelo já persistido no PVC do Ollama
+    backend: localai           # v0.2.25 não tem backend "ollama" nativo; localai consome a API OpenAI-compat do Ollama
+    baseUrl: http://ollama.aiops-lab.svc.cluster.local:11434/v1
+  noCache: false              # força análise fresca a cada ciclo (sem cache entre runs)
+  filters:                    # escopo: apenas recursos relevantes para os 4 cenários de falha
+    - Pod
+    - Deployment
+    - ReplicaSet
