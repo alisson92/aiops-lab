@@ -74,7 +74,7 @@ releases:
   - name: k8sgpt-operator
     namespace: "{{ .Values.namespace }}"
     chart: k8sgpt/k8sgpt-operator
-    version: "0.2.27"   # app: 0.2.25
+    version: "0.2.27"   # app: 0.2.27
     values:
       - charts/k8sgpt/values.yaml
     needs:

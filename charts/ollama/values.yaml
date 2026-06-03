@@ -94,10 +94,10 @@ ollama:
   models:
     # -- List of models to pull at container startup
     # The more you add, the longer the container will take to start if models are not present
-    # Fase 0: trocar o modelo aqui para rodar a matriz de benchmark.
-    # Candidatos: gemma2:2b | phi3:mini | phi3.5:mini | llama3.2:3b | qwen2.5:3b | mistral:7b-q4_K_M
-    # phi3:mini (~3.5 GiB em uso) estoura a RAM disponível no nó Kind com os outros pods rodando.
-    # gemma2:2b (~1.6 GiB) é o baseline viável para o lab local.
+    # Modelo pulled automaticamente no startup — baseline da Fase 1.
+    # Demais modelos da Fase 0 já estão persistidos no PVC (pulled manualmente):
+    #   phi3:mini | phi3.5:3.8b | llama3.2:3b | qwen2.5:3b | mistral:7b-instruct-q4_K_M
+    # Tags corretas no Ollama: phi3.5:3.8b (não phi3.5:mini) | mistral:7b-instruct-q4_K_M (não mistral:7b-q4_K_M)
     pull:
       - gemma2:2b
 
@@ -359,7 +359,7 @@ readinessProbe:
   path: /api/tags
 
   # -- Initial delay seconds for readinessProbe
-  # phi3:mini (~2.3 GB) pode levar vários minutos no primeiro pull.
+  # modelos maiores (ex: mistral:7b-instruct-q4_K_M ~4.4 GB) podem levar vários minutos no primeiro pull.
   initialDelaySeconds: 30
 
   # -- Period seconds for readinessProbe
