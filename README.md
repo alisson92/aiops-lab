@@ -196,12 +196,21 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 ## 14. Status
 
 - [x] Definição e refinamento do projeto (este README)
-- [ ] Esqueleto do repositório + `CLAUDE.md` (via `/init`)
-- [ ] Camadas 1–2 (cluster + kube-prometheus-stack)
-- [ ] Camada 3 (Ollama + matriz de modelos — Fase 0)
-- [ ] Camada 4 (workload-vítima + cenários)
-- [ ] Fase 1 (isolado) → Fase 2 (combinações) → Fase 3 (tríade)
-- [ ] Fase 4 (pontuação + recomendação + demo)
+- [x] Esqueleto do repositório + `CLAUDE.md`
+- [x] Camada 1 — Cluster Kind `aiops-lab` (kind v0.30.0 / k8s v1.34.0)
+- [x] Camada 2 — kube-prometheus-stack (chart 86.1.0) + alert rules (4 cenários)
+- [x] Camada 3 — Ollama (chart 1.57.0, limit 7 GiB) + 6 modelos no PVC
+- [x] **Fase 0** — Benchmark de modelos LLM: 4 de 6 aprovados (`gemma2:2b`, `phi3.5:3.8b`, `qwen2.5:3b`, `mistral:7b-instruct-q4_K_M`)
+- [x] Camada 4 — workload-vítima + scripts de cenário (CrashLoopBackOff, OOMKilled, ImagePullBackOff, Readiness failing)
+- [x] **Fase 1 — K8sGPT** (k8sgpt-operator 0.2.27 / k8sgpt v0.4.33): 4 cenários executados, resultados registrados
+- [ ] **Fase 1 — HolmesGPT** ← próximo
+- [ ] **Fase 1 — Keep**
+- [ ] Fase 2 — Combinações (Keep+K8sGPT, Keep+HolmesGPT)
+- [ ] Fase 3 — Tríade integrada
+- [ ] Fase 4 — Pontuação + recomendação + demo
+
+> Progresso detalhado (estado atual, decisões técnicas, próximos passos): [`PROGRESS.md`](PROGRESS.md)
+> Resultados dos testes: [`results/scoring-matrix.md`](results/scoring-matrix.md)
 
 ---
 
