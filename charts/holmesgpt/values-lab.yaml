@@ -1,0 +1,96 @@
+# HolmesGPT — overrides para lab aiops-lab
+# Aplicar sobre o values.yaml oficial: helm upgrade ... -f values.yaml -f values-lab.yaml
+# Chart: robusta/holmes v0.31.1
+#
+# 🔒 Tier B detectado: k8sRBAC: false (padrão do chart) cria ClusterRole + ClusterRoleBinding.
+# Não existe modo Tier A upstream para o Holmes. Mesmo padrão já aceito para o K8sGPT.
+#
+# Gates validados: 100% local · CPU-only · Custo zero · Helm-deployável
+
+# --- LLM Provider: Ollama interno via formato nativo ollama_chat ---
+# Descoberta de testes: HolmesGPT exige tool calling. Compatibilidade por modelo:
+#   gemma2:2b             ❌ não suporta tools
+#   phi3.5:3.8b           ❌ não suporta tools
+#   mistral:7b-instruct   ❌ não suporta tools (tag q4_K_M incompatível)
+#   qwen2.5:3b            ⚠️  suporta mas entra em loop (via openai/ e ollama_chat)
+#   llama3.2:3b           ✅ suporte nativo a tools no Ollama (adicionado para HolmesGPT)
+# Apenas llama3.2 e qwen2.5 suportam tools — ambos testados com ollama_chat nativo.
+additionalEnvVars:
+  - name: OLLAMA_API_BASE
+    value: "http://ollama.aiops-lab.svc.cluster.local:11434"
+  # Modelo padrão para os testes: llama3.2:3b (menor latência + suporte a tools)
+  - name: MODEL
+    value: "llama32-3b"
+
+# Somente modelos com suporte confirmado a tool calling no Ollama.
+# temperature: 0 para resultados reproduzíveis no bake-off.
+modelList:
+  llama32-3b:
+    api_base: "{{ env.OLLAMA_API_BASE }}"
+    model: ollama_chat/llama3.2:3b
+    temperature: 0
+
+  qwen25-3b:
+    api_base: "{{ env.OLLAMA_API_BASE }}"
+    model: ollama_chat/qwen2.5:3b
+    temperature: 0
+
+# --- Toolsets ---
+# internet e connectivity_check desabilitados: gate 100% local, sem egress em runtime.
+# robusta desabilitado: requer conexão com Robusta cloud (viola gate local/custo zero).
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  robusta:
+    enabled: false
+  internet:
+    enabled: false
+  prometheus/metrics:
+    enabled: true
+  skills:
+    enabled: true
+  connectivity_check:
+    enabled: false
+  bash:
+    enabled: true
+    config:
+      builtin_allowlist: "extended"
+
+# --- Security Context ---
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# --- Resources ---
+# Holmes não faz inferência local — CPU/memory para o runtime Python + buffer de resultados.
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+# --- CRD permissions ---
+# Desabilitadas: sem Argo, Flux, Kafka etc. no lab — reduz escopo do ClusterRole.
+crdPermissions:
+  argo: false
+  flux: false
+  kafka: false
+  keda: false
+  crossplane: false
+  istio: false
+  gatewayApi: false
+  velero: false
+  externalSecrets: false
+
+# ⚠️ replicas: 1 sem PDB — aceitável para lab; revisar antes de EKS prod.
+# Operator mode e todos os MCP addons herdados do values.yaml (enabled: false por padrão).

@@ -492,4 +492,3 @@ deleteSecretJob:
     repository: bitnami/kubectl
     tag: latest
     pullPolicy: Always
-

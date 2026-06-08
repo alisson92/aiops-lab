@@ -1578,6 +1578,29 @@ grafana:
   #   b) extraConfigmapMounts: montar o arquivo de alertas diretamente (sem tpl)
   # Por ora, annotations usam texto estático (adequado para o lab).
   alerting:
+    # Contact point Keep — persiste via provisioning (sobrevive a restarts do pod)
+    contactpoints.yaml:
+      apiVersion: 1
+      contactPoints:
+        - orgId: 1
+          name: Keep
+          receivers:
+            - uid: keep-webhook-provisioned
+              type: webhook
+              settings:
+                url: "http://keep-backend.aiops-lab.svc.cluster.local:8080/alerts/event/grafana"
+                httpMethod: POST
+                authorization_scheme: Bearer
+                authorization_credentials: keepappkey
+              disableResolveMessage: false
+
+    # Notification policy — roteia todos os alertas para o Keep
+    policies.yaml:
+      apiVersion: 1
+      policies:
+        - orgId: 1
+          receiver: Keep
+
     rules.yaml:
       apiVersion: 1
       groups:
@@ -1674,10 +1697,9 @@ grafana:
                     to: 0
                   datasourceUid: prometheus
                   model:
+                    # Retorna 1 quando o pod NÃO está Ready (Grafana trata 0 como falsy — nunca dispara)
                     expr: |
-                      kube_pod_status_ready{namespace="aiops-lab",pod=~"workload-vitima.*",condition="true"} == 0
-                      and
-                      kube_pod_status_phase{namespace="aiops-lab",pod=~"workload-vitima.*",phase="Running"} == 1
+                      1 - kube_pod_status_ready{namespace="aiops-lab",pod=~"workload-vitima.*",condition="true"}
                     instant: true
                     refId: A
               noDataState: OK

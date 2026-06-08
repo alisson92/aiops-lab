@@ -1,0 +1,127 @@
+# Keep — overrides para lab aiops-lab
+# Aplicar sobre o values.yaml oficial: helm upgrade ... -f values.yaml -f values-lab.yaml
+# Chart: keephq/keep v0.1.96
+#
+# Gates validados: 100% local · CPU-only · Custo zero · Helm-deployável
+# Tier A: todos os recursos são namespaced. Sem ClusterRole/CRD necessários.
+#
+# Fluxo de alertas alvo:
+#   Prometheus → Grafana Alerting → Keep (webhook) → [AI via Ollama] → Teams
+#
+# Diferença vs HolmesGPT: Keep usa 1 chamada LLM por alerta (enriquecimento),
+# não múltiplas rodadas de tool-calling → viável em CPU.
+
+# Namespace do lab (todos os demais componentes também estão aqui)
+namespace: aiops-lab
+
+# --- LLM: Ollama interno via endpoint OpenAI-compatible ---
+# O chart injeta OPENAI_API_KEY quando enabled: true.
+# OPENAI_API_BASE é adicionado via backend.env abaixo.
+openAiApi:
+  enabled: true
+  openAiApiKey: "ollama"  # valor obrigatório pela lib; não é uma chave real
+
+# --- Ingress ---
+# Desabilitado: sem nginx-ingress controller no Kind.
+# Acesso ao frontend via: kubectl port-forward svc/keep-frontend -n aiops-lab 3001:3000
+global:
+  ingress:
+    enabled: false
+
+# --- Backend (API Python/FastAPI) ---
+backend:
+  replicaCount: 1
+  env:
+    # Banco de dados MySQL bundled
+    - name: DATABASE_CONNECTION_STRING
+      value: "mysql+pymysql://root@keep-database:3306/keep"
+    - name: DATABASE_NAME
+      value: "keep-database"
+    # Segredo interno do Pusher (websocket) — valor fixo para lab
+    - name: SECRET_MANAGER_TYPE
+      value: "k8s"
+    - name: PORT
+      value: "8080"
+    - name: PUSHER_APP_ID
+      value: "1"
+    - name: PUSHER_APP_KEY
+      value: "keepappkey"
+    - name: PUSHER_APP_SECRET
+      value: "keepappsecret"
+    - name: PUSHER_HOST
+      value: "keep-websocket"
+    - name: PUSHER_PORT
+      value: "6001"
+    - name: PROMETHEUS_MULTIPROC_DIR
+      value: "/tmp/prometheus"
+    # Ollama como provider OpenAI-compatible — sobrepõe endpoint padrão
+    - name: OPENAI_API_BASE
+      value: "http://ollama.aiops-lab.svc.cluster.local:11434/v1"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    # Aumentado de 512Mi: backend acumula estado de workflows e conexões DB
+    limits:
+      memory: 1Gi
+
+  # ⚠️ replicaCount: 1 sem PDB — aceitável para lab
+  podSecurityContext:
+    runAsNonRoot: false  # a imagem oficial roda como root; manter padrão upstream
+
+# --- Frontend (Next.js) ---
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# --- Websocket (Soketi/Pusher-compatible) ---
+websocket:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+# --- Database (MySQL bundled) ---
+database:
+  enabled: true
+  type: mysql
+
+  # StorageClass do Kind (provisionamento local)
+  pv:
+    enabled: true
+    size: 2Gi
+    storageClass: "standard"
+  pvc:
+    enabled: true
+    size: 2Gi
+    storageClass: "standard"
+    retain: false
+
+  mysql:
+    image:
+      repository: mysql
+      # Pinando versão — o default do chart usa 'latest' (viola gate de imagem)
+      tag: "8.0.36"
+    env:
+      - name: MYSQL_ALLOW_EMPTY_PASSWORD
+        value: true
+      - name: MYSQL_DATABASE
+        value: keep
+      - name: MYSQL_PASSWORD
+        value: null
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
