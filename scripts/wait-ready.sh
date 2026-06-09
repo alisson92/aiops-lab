@@ -2,43 +2,59 @@
 # scripts/wait-ready.sh
 #
 # Aguarda todos os Deployments e StatefulSets do namespace ficarem prontos.
-# Executado entre o 'helmfile sync' e o 'keep-bootstrap.sh' para garantir
-# que a stack inteira está Running antes de tentar configurar o Keep.
+# Os checks rodam em paralelo — o tempo de espera é o do workload mais lento,
+# não a soma de todos. Timeout global de 15 min (suficiente para primeiro pull).
 #
 # Uso: bash scripts/wait-ready.sh
 
 set -euo pipefail
 
 NAMESPACE="aiops-lab"
-TIMEOUT=600  # 10 min — Ollama e kube-prometheus-stack são lentos no primeiro pull
+GLOBAL_TIMEOUT=900  # 15 min — primeiro pull de imagens pode ser lento
 
 echo "Aguardando workloads ficarem prontos no namespace '${NAMESPACE}'..."
-echo "(timeout: ${TIMEOUT}s — o primeiro pull de imagens pode demorar)"
+echo "(timeout global: ${GLOBAL_TIMEOUT}s — checks em paralelo)"
 echo ""
 
-ALL_OK=true
+# Coleta todos os workloads (Deployments + StatefulSets)
+mapfile -t WORKLOADS < <(
+  kubectl get deployment,statefulset -n "${NAMESPACE}" -o name 2>/dev/null
+)
 
-# Deployments
-for deploy in $(kubectl get deployment -n "${NAMESPACE}" -o name 2>/dev/null); do
-  printf "  %-60s" "${deploy}"
-  if kubectl rollout status "${deploy}" -n "${NAMESPACE}" --timeout="${TIMEOUT}s" \
-       >/dev/null 2>&1; then
-    echo "✓"
+if [[ ${#WORKLOADS[@]} -eq 0 ]]; then
+  echo "[AVISO] Nenhum workload encontrado no namespace '${NAMESPACE}'."
+  exit 0
+fi
+
+# Dispara um rollout status em background para cada workload
+declare -A PIDS
+for workload in "${WORKLOADS[@]}"; do
+  kubectl rollout status "${workload}" -n "${NAMESPACE}" \
+    --timeout="${GLOBAL_TIMEOUT}s" >/dev/null 2>&1 &
+  PIDS["${workload}"]=$!
+done
+
+# Aguarda cada processo e coleta resultado
+ALL_OK=true
+declare -A RESULTS
+
+for workload in "${!PIDS[@]}"; do
+  if wait "${PIDS[$workload]}" 2>/dev/null; then
+    RESULTS["${workload}"]="ok"
   else
-    echo "✗  (timeout ou erro — verifique: kubectl describe ${deploy} -n ${NAMESPACE})"
+    RESULTS["${workload}"]="fail"
     ALL_OK=false
   fi
 done
 
-# StatefulSets (ex: MySQL do Keep)
-for sts in $(kubectl get statefulset -n "${NAMESPACE}" -o name 2>/dev/null); do
-  printf "  %-60s" "${sts}"
-  if kubectl rollout status "${sts}" -n "${NAMESPACE}" --timeout="${TIMEOUT}s" \
-       >/dev/null 2>&1; then
-    echo "✓"
+# Imprime resultado ordenado
+for workload in $(printf '%s\n' "${!RESULTS[@]}" | sort); do
+  if [[ "${RESULTS[$workload]}" == "ok" ]]; then
+    printf "  ✓ %s\n" "${workload}"
   else
-    echo "✗  (timeout ou erro — verifique: kubectl describe ${sts} -n ${NAMESPACE})"
-    ALL_OK=false
+    printf "  ✗ %s\n" "${workload}"
+    printf "    → kubectl describe %s -n %s\n" "${workload}" "${NAMESPACE}"
+    printf "    → k9s -n %s\n" "${NAMESPACE}"
   fi
 done
 
@@ -47,7 +63,6 @@ echo ""
 if $ALL_OK; then
   echo "Todos os workloads prontos. Prosseguindo com o bootstrap."
 else
-  echo "[ERRO] Um ou mais workloads não ficaram prontos no tempo limite." >&2
-  echo "       Use 'k9s -n ${NAMESPACE}' para investigar." >&2
+  echo "[ERRO] Um ou mais workloads não ficaram prontos em ${GLOBAL_TIMEOUT}s." >&2
   exit 1
 fi
