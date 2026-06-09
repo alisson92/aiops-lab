@@ -126,12 +126,6 @@ print(any(w.get('name') == 'Ollama Grafana Alert Enrichment' for w in workflows)
 
 # ─── main ─────────────────────────────────────────────────────────────────────
 
-# Aguarda o pod do Keep backend estar Running e Ready antes de tentar conectar.
-# O helmfile sync reporta "deployed" quando os manifests são aplicados — não quando
-# os pods inicializaram. O banco de dados e as migrations precisam de tempo extra.
-echo "Aguardando Keep backend ficar Ready (timeout: 5min)..."
-kubectl rollout status deployment/keep-backend -n "${NAMESPACE}" --timeout=300s
-
 start_pf
 trap stop_pf EXIT  # garante cleanup mesmo se o script falhar
 

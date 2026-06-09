@@ -8,7 +8,7 @@ ENV          := local
 
 # ─── targets principais ───────────────────────────────────────────────────────
 
-.PHONY: help check setup cluster-up deploy bootstrap pf teardown
+.PHONY: help check setup cluster-up deploy wait-ready bootstrap pf teardown
 
 help: ## Mostra esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) \
@@ -17,7 +17,7 @@ help: ## Mostra esta ajuda
 check: ## Verifica pré-requisitos do ambiente (ferramentas, RAM, disco, portas)
 	bash scripts/check-prerequisites.sh
 
-setup: cluster-up deploy bootstrap ## Sobe o lab completo do zero (≈10 min)
+setup: cluster-up deploy wait-ready bootstrap ## Sobe o lab completo do zero (≈15 min)
 
 cluster-up: ## Cria o cluster Kind aiops-lab (idempotente)
 	@if kind get clusters 2>/dev/null | grep -q "^$(CLUSTER_NAME)$$"; then \
@@ -28,6 +28,9 @@ cluster-up: ## Cria o cluster Kind aiops-lab (idempotente)
 
 deploy: ## Aplica todos os releases via helmfile (⚠️ remove holmesgpt se presente)
 	helmfile -e $(ENV) sync
+
+wait-ready: ## Aguarda todos os pods ficarem Running/Ready antes de prosseguir
+	bash scripts/wait-ready.sh
 
 bootstrap: ## Registra Ollama provider e workflow no Keep (idempotente)
 	bash scripts/keep-bootstrap.sh
