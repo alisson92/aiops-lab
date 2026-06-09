@@ -6,15 +6,19 @@
 
 ## Como reproduzir
 
-**Requisitos mínimos de hardware:**
+**Requisitos de hardware:**
 
-| Recurso | Mínimo | Recomendado |
+| Recurso | Mínimo (gemma2:2b) | Recomendado (matriz completa) |
 |---|---|---|
-| vCPUs | **4** | 4+ |
+| vCPUs | **4** | 4 |
 | RAM | **8 GB** | 12 GB |
-| Disco livre | **15 GB** | 25 GB |
+| Disco livre | **15 GB** | 30 GB |
 
-> ⚠️ **2 vCPUs não é suficiente.** Com 2 vCPUs o scheduler do Kubernetes não consegue alocar todos os pods — Keep e K8sGPT ficam em `Pending`. Ajuste no hipervisor/VM antes de prosseguir.
+Valores baseados em medição real do cluster (CPU requests: ~1.6 vCPUs · RAM requests: ~3.7 GB · imagens: ~6 GB · modelos Ollama: 1.6 GB por modelo, até 14 GB com todos os 6 da matriz).
+
+> ⚠️ **2 vCPUs não é suficiente.** Com 2 vCPUs o scheduler esgota os CPU requests e os pods do Keep e K8sGPT ficam em `Pending`. Ajuste o hipervisor antes de prosseguir.
+>
+> ⚠️ **Disco:** cada modelo Ollama adicional ocupa ~1.6–4.4 GB. Reserve espaço extra se for testar a matriz completa de modelos.
 
 **Pré-requisito zero — instale o `git` se ainda não tiver:**
 

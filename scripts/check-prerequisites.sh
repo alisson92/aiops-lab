@@ -279,19 +279,20 @@ else
 fi
 
 if   (( TOTAL_RAM_GB >= 12 )); then ok   "RAM: ${TOTAL_RAM_GB} GB"
-elif (( TOTAL_RAM_GB >= 8  )); then warn "RAM: ${TOTAL_RAM_GB} GB — mínimo viável; recomendado ≥12 GB para inferência confortável"
+elif (( TOTAL_RAM_GB >= 8  )); then warn "RAM: ${TOTAL_RAM_GB} GB — mínimo para gemma2:2b; recomendado ≥12 GB para matriz completa de modelos"
 else                                 fail "RAM: ${TOTAL_RAM_GB} GB — insuficiente (mínimo: 8 GB)"
-  info "Ollama com gemma2:2b requer ~4 GB; restante do stack ~3 GB"
+  info "Stack usa ~3.7 GB de requests + modelo Ollama em memória (~1.6–4.4 GB por modelo)"
 fi
 
 # Disco
 DISK_FREE_KB=$(df -k "${HOME}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
 DISK_FREE_GB=$(( DISK_FREE_KB / 1024 / 1024 ))
 
-if   (( DISK_FREE_GB >= 25 )); then ok   "Disco livre: ${DISK_FREE_GB} GB"
-elif (( DISK_FREE_GB >= 15 )); then warn "Disco livre: ${DISK_FREE_GB} GB — mínimo; recomendado ≥25 GB"
-  info "PVC do Ollama: 15 Gi + imagens de container (~3–5 GB)"
+if   (( DISK_FREE_GB >= 30 )); then ok   "Disco livre: ${DISK_FREE_GB} GB"
+elif (( DISK_FREE_GB >= 15 )); then warn "Disco livre: ${DISK_FREE_GB} GB — suficiente para gemma2:2b; recomendado ≥30 GB para matriz completa"
+  info "Imagens: ~6 GB · gemma2:2b: ~1.6 GB · cada modelo adicional: 1.6–4.4 GB · MySQL PVC: 2 GB"
 else                                 fail "Disco livre: ${DISK_FREE_GB} GB — insuficiente (mínimo: 15 GB)"
+  info "Reserve ao menos 15 GB para imagens de container + modelo base (gemma2:2b) + PVCs"
 fi
 
 # ── portas ────────────────────────────────────────────────────────────────────
