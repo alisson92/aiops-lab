@@ -224,6 +224,23 @@ else
   ok "pkill (procps)"
 fi
 
+# k9s
+if ! command -v k9s &>/dev/null; then
+  fail "k9s — não encontrado (obrigatório para troubleshooting e gestão do cluster)"
+  ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+  if $IS_MAC; then
+    info "brew install k9s"
+  else
+    # Busca a versão latest via GitHub API; OS com inicial maiúscula no nome do arquivo
+    info "K9S_VER=\$(curl -sf https://api.github.com/repos/derailed/k9s/releases/latest | grep '\"tag_name\"' | sed 's/.*\"tag_name\":.*\"v\([^\"]*\)\".*/\1/')"
+    info "curl -Lo /tmp/k9s.tar.gz \"https://github.com/derailed/k9s/releases/download/v\${K9S_VER}/k9s_Linux_${ARCH}.tar.gz\""
+    info "tar -xzf /tmp/k9s.tar.gz -C /tmp k9s"
+    info "sudo install -m 755 /tmp/k9s /usr/local/bin/k9s && rm /tmp/k9s /tmp/k9s.tar.gz"
+  fi
+else
+  ok "k9s $(k9s version --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || k9s version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+fi
+
 # git
 if ! command -v git &>/dev/null; then
   fail "git — não encontrado"
