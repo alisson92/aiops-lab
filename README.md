@@ -32,10 +32,10 @@ make setup        # cria cluster + sobe todos os releases + bootstrap (~10 min)
 > **`make check` apontou que o `helmfile` está faltando?**
 > Instale com os comandos abaixo (o release é um `.tar.gz` — não um binário direto):
 > ```bash
-> curl -Lo /tmp/helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_amd64.tar.gz
+> HF_VER=$(curl -sf https://api.github.com/repos/helmfile/helmfile/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name":.*"v\([^"]*\)".*/\1/')
+> curl -Lo /tmp/helmfile.tar.gz "https://github.com/helmfile/helmfile/releases/download/v${HF_VER}/helmfile_${HF_VER}_linux_amd64.tar.gz"
 > tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
-> sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile
-> rm /tmp/helmfile /tmp/helmfile.tar.gz
+> sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile && rm /tmp/helmfile /tmp/helmfile.tar.gz
 > ```
 
 ```bash

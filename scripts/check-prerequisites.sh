@@ -116,8 +116,10 @@ if ! command -v kind &>/dev/null; then
   if $IS_MAC; then
     info "brew install kind"
   else
-    info "curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-${ARCH}"
-    info "sudo install -m 755 /tmp/kind /usr/local/bin/kind"
+    # Busca a versão latest via GitHub API para não quebrar com novos releases
+    info "KIND_VER=\$(curl -sf https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | grep '\"tag_name\"' | sed 's/.*\"tag_name\":\s*\"\(v[^\"]*\)\".*/\1/')"
+    info "curl -Lo /tmp/kind \"https://kind.sigs.k8s.io/dl/\${KIND_VER}/kind-linux-${ARCH}\""
+    info "sudo install -m 755 /tmp/kind /usr/local/bin/kind && rm /tmp/kind"
   fi
 else
   ok "kind $(kind version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
@@ -159,11 +161,12 @@ if ! command -v helmfile &>/dev/null; then
   if $IS_MAC; then
     info "brew install helmfile"
   else
-    # A partir da v0.150+, o release é um .tar.gz (não binário direto)
-    info "curl -Lo /tmp/helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_${ARCH}.tar.gz"
+    # Busca a versão latest via GitHub API (release é .tar.gz desde a v0.150+)
+    # A versão no nome do arquivo não tem o prefixo 'v', por isso há dois sed
+    info "HF_VER=\$(curl -sf https://api.github.com/repos/helmfile/helmfile/releases/latest | grep '\"tag_name\"' | sed 's/.*\"tag_name\":\s*\"v\([^\"]*\)\".*/\1/')"
+    info "curl -Lo /tmp/helmfile.tar.gz \"https://github.com/helmfile/helmfile/releases/download/v\${HF_VER}/helmfile_\${HF_VER}_linux_${ARCH}.tar.gz\""
     info "tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile"
-    info "sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile"
-    info "rm /tmp/helmfile /tmp/helmfile.tar.gz"
+    info "sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile && rm /tmp/helmfile /tmp/helmfile.tar.gz"
   fi
 else
   ok "helmfile v$(helmfile version 2>/dev/null | awk '/Version/{print $2}' | head -1)"
