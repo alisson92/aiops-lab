@@ -1,3 +1,4 @@
+SHELL        := /bin/bash
 .DEFAULT_GOAL := help
 
 # ─── variáveis ────────────────────────────────────────────────────────────────
@@ -7,11 +8,14 @@ ENV          := local
 
 # ─── targets principais ───────────────────────────────────────────────────────
 
-.PHONY: help setup cluster-up deploy bootstrap pf teardown
+.PHONY: help check setup cluster-up deploy bootstrap pf teardown
 
 help: ## Mostra esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS=":.*##"}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+check: ## Verifica pré-requisitos do ambiente (ferramentas, RAM, disco, portas)
+	bash scripts/check-prerequisites.sh
 
 setup: cluster-up deploy bootstrap ## Sobe o lab completo do zero (≈10 min)
 

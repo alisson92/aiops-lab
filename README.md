@@ -7,12 +7,10 @@
 ## Como reproduzir
 
 ```bash
-# pré-requisitos: kind · kubectl · helm · helmfile · make
 git clone https://github.com/alisson92/aiops-lab.git && cd aiops-lab
 
-make cluster-up   # cria o cluster Kind aiops-lab                    (~1 min)
-make deploy       # sobe todos os releases via helmfile               (~10 min)
-make bootstrap    # registra Ollama provider + workflow no Keep       (~30s)
+make check        # verifica ferramentas, RAM, disco e portas         (30s)
+make setup        # cria cluster + sobe todos os releases + bootstrap (~10 min)
 
 # uso diário — após reiniciar o PC
 make pf           # sobe todos os port-forwards e imprime as URLs
