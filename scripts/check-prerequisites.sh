@@ -259,6 +259,16 @@ fi
 echo ""
 echo -e "${BOLD}Recursos do sistema${RESET}"
 
+# CPU
+TOTAL_CPUS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 0)
+
+if   (( TOTAL_CPUS >= 4 )); then ok   "vCPUs: ${TOTAL_CPUS}"
+elif (( TOTAL_CPUS >= 2 )); then fail "vCPUs: ${TOTAL_CPUS} — insuficiente (mínimo: 4)"
+  info "Com 2 vCPUs o scheduler não consegue alocar todos os pods — Keep e K8sGPT ficam Pending"
+  info "Aumente para ≥4 vCPUs nas configurações do hipervisor/VM antes de prosseguir"
+else                              fail "vCPUs: ${TOTAL_CPUS} — não foi possível detectar"
+fi
+
 # RAM
 if [[ -f /proc/meminfo ]]; then
   TOTAL_RAM_KB=$(awk '/MemTotal/{print $2}' /proc/meminfo)

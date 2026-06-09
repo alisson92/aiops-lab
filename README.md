@@ -6,6 +6,16 @@
 
 ## Como reproduzir
 
+**Requisitos mínimos de hardware:**
+
+| Recurso | Mínimo | Recomendado |
+|---|---|---|
+| vCPUs | **4** | 4+ |
+| RAM | **8 GB** | 12 GB |
+| Disco livre | **15 GB** | 25 GB |
+
+> ⚠️ **2 vCPUs não é suficiente.** Com 2 vCPUs o scheduler do Kubernetes não consegue alocar todos os pods — Keep e K8sGPT ficam em `Pending`. Ajuste no hipervisor/VM antes de prosseguir.
+
 **Pré-requisito zero — instale o `git` se ainda não tiver:**
 
 ```bash
