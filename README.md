@@ -4,6 +4,43 @@
 
 ---
 
+## Como reproduzir
+
+```bash
+# pré-requisitos: kind · kubectl · helm · helmfile · make
+git clone https://github.com/alisson92/aiops-lab.git && cd aiops-lab
+
+make cluster-up   # cria o cluster Kind aiops-lab                    (~1 min)
+make deploy       # sobe todos os releases via helmfile               (~10 min)
+make bootstrap    # registra Ollama provider + workflow no Keep       (~30s)
+
+# uso diário — após reiniciar o PC
+make pf           # sobe todos os port-forwards e imprime as URLs
+```
+
+| URL | Credenciais |
+|---|---|
+| Keep dashboard `http://localhost:3001` | API key: `keepappkey` |
+| Grafana `http://localhost:3000` | admin / admin |
+| Prometheus `http://localhost:9091` | — |
+
+> Resultado esperado: cluster com Prometheus → Grafana → Keep → Ollama (gemma2:2b) operacionais.
+> K8sGPT analisando o namespace `aiops-lab` automaticamente a cada ciclo.
+
+```bash
+# injetar e reverter uma falha (exemplo)
+bash scenarios/02-oomkilled.sh
+bash scenarios/02-oomkilled.sh --revert
+
+# encerrar o lab sem destruir dados
+docker stop aiops-lab-control-plane
+
+# destruir tudo
+make teardown
+```
+
+---
+
 ## 1. Visão geral
 
 Este projeto **não é** uma POC descartável nem um MVP de produto. É uma **avaliação técnica (bake-off)**: colocar as três ferramentas no mesmo banco de provas, rodar os mesmos cenários de falha, pontuá-las contra critérios definidos *antes* dos testes e sair com uma decisão defensável.
@@ -187,13 +224,16 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 ## 13. Pré-requisitos
 
 - WSL2 + Docker/containerd
-- `kind`, `kubectl`, `helm`
-- Modelo de LLM pré-baixado (para o caminho offline)
-- Recursos locais compatíveis com inferência CPU-only
+- `kind`, `kubectl`, `helm`, `helmfile`, `make`
+- Recursos locais compatíveis com inferência CPU-only (~8 GB RAM disponíveis)
+
+> O `make deploy` já cuida de puxar o modelo `gemma2:2b` automaticamente no primeiro boot do Ollama. Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
 
 ---
 
 ## 14. Status
+
+**Bake-off concluído. ADR redigida.**
 
 - [x] Definição e refinamento do projeto (este README)
 - [x] Esqueleto do repositório + `CLAUDE.md`
@@ -201,16 +241,20 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 - [x] Camada 2 — kube-prometheus-stack (chart 86.1.0) + alert rules (4 cenários)
 - [x] Camada 3 — Ollama (chart 1.57.0, limit 7 GiB) + 6 modelos no PVC
 - [x] **Fase 0** — Benchmark de modelos LLM: 4 de 6 aprovados (`gemma2:2b`, `phi3.5:3.8b`, `qwen2.5:3b`, `mistral:7b-instruct-q4_K_M`)
-- [x] Camada 4 — workload-vítima + scripts de cenário (CrashLoopBackOff, OOMKilled, ImagePullBackOff, Readiness failing)
-- [x] **Fase 1 — K8sGPT** (k8sgpt-operator 0.2.27 / k8sgpt v0.4.33): 4 cenários executados, resultados registrados
-- [ ] **Fase 1 — HolmesGPT** ← próximo
-- [ ] **Fase 1 — Keep**
-- [ ] Fase 2 — Combinações (Keep+K8sGPT, Keep+HolmesGPT)
-- [ ] Fase 3 — Tríade integrada
-- [ ] Fase 4 — Pontuação + recomendação + demo
+- [x] Camada 4 — workload-vítima + scripts de cenário (4 cenários)
+- [x] **Fase 1 — K8sGPT** (k8sgpt-operator 0.2.27 / k8sgpt v0.4.33) — score **3.1/5**
+- [x] **Fase 1 — HolmesGPT** — **eliminado** (tool-calling inviável em CPU-only)
+- [x] **Fase 1 — Keep** (keephq/keep v0.1.96) — score **3.5/5**
+- [x] **Fase 2** — Keep + K8sGPT em conjunto: papéis complementares identificados
+- [x] **Fase 3** — pulada (HolmesGPT eliminado)
+- [x] **Fase 4** — pontuação + ADR + roteiro de demo
 
-> Progresso detalhado (estado atual, decisões técnicas, próximos passos): [`PROGRESS.md`](PROGRESS.md)
-> Resultados dos testes: [`results/scoring-matrix.md`](results/scoring-matrix.md)
+| Artefato | Link |
+|---|---|
+| Progresso detalhado e decisões técnicas | [`PROGRESS.md`](PROGRESS.md) |
+| Evidências e scoring por cenário | [`results/scoring-matrix.md`](results/scoring-matrix.md) |
+| Decisão de adoção (ADR-001) | [`results/ADR-001-aiops-platform.md`](results/ADR-001-aiops-platform.md) |
+| Roteiro de demonstração ao vivo | [`results/demo-roteiro.md`](results/demo-roteiro.md) |
 
 ---
 
