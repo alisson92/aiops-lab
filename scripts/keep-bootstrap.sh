@@ -51,22 +51,25 @@ wait_for_keep() {
 # ─── provider Ollama ──────────────────────────────────────────────────────────
 
 install_ollama_provider() {
-  # Retorna: "installed" | "stale:<id>" (existe mas installed=false) | "absent"
-  # Bug v0.1.96: provider pode existir no DB com installed=false após restart do backend.
-  # Nesse caso o POST /install falha com 4xx — é preciso deletar antes de reinstalar.
+  # /providers     → catálogo completo (installed=false para não instalados, id=null)
+  # /providers/all → somente providers instalados com id real
+  # Bug v0.1.96: provider pode existir no DB com installed=false após restart.
+  # Nesse caso: deletar pelo id e reinstalar.
   local state
-  state=$(curl -sf "${KEEP_API}/providers" \
+  state=$(curl -sf "${KEEP_API}/providers/export" \
     -H "X-API-KEY: ${API_KEY}" | \
     python3 -c "
 import sys, json
 providers = json.load(sys.stdin)
+if isinstance(providers, dict):
+    providers = providers.get('providers', [])
 ollama = next((p for p in providers if p.get('type') == 'ollama'), None)
 if not ollama:
     print('absent')
 elif ollama.get('installed'):
     print('installed')
 else:
-    print('stale:' + ollama.get('id', ''))
+    print('stale:' + (ollama.get('id') or ''))
 " 2>/dev/null || echo "absent")
 
   if [[ "$state" == "installed" ]]; then
@@ -75,9 +78,9 @@ else:
   fi
 
   if [[ "$state" == stale:* ]]; then
-    local provider_id="${state#stale:}"
-    echo "Provider em estado inconsistente (installed=false). Removendo ID '${provider_id}'..."
-    curl -sf -X DELETE "${KEEP_API}/providers/ollama/${provider_id}" \
+    local stale_id="${state#stale:}"
+    echo "Provider em estado inconsistente. Removendo ID '${stale_id}'..."
+    curl -sf -X DELETE "${KEEP_API}/providers/ollama/${stale_id}" \
       -H "X-API-KEY: ${API_KEY}" >/dev/null || true
   fi
 
@@ -86,6 +89,7 @@ else:
     -H "X-API-KEY: ${API_KEY}" \
     -H "Content-Type: application/json" \
     -d '{
+      "provider_id":   "ollama-local",
       "provider_type": "ollama",
       "provider_name": "ollama-local",
       "host": "http://ollama.'"${NAMESPACE}"'.svc.cluster.local:11434"
