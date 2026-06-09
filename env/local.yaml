@@ -6,3 +6,8 @@ storageClass: standard           # Kind usa local-path-provisioner com StorageCl
 ollamaEndpoint: http://ollama.aiops-lab.svc.cluster.local:11434
 grafanaAdminPassword: admin      # seguro apenas em local; em prod use Secret externo
 teamsWebhookUrl: ""              # não usado em local; configure em prod
+
+# URL externa do Keep frontend — usada pelo NextAuth para gerar redirect URLs corretos.
+# WSL2 / acesso local:  http://localhost:3001
+# VM com IP fixo:       http://<IP_DA_VM>:3001
+keepFrontendUrl: "http://localhost:3001"

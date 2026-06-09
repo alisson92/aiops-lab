@@ -73,6 +73,13 @@ backend:
 # --- Frontend (Next.js) ---
 frontend:
   replicaCount: 1
+  env:
+    # NEXTAUTH_URL informa ao NextAuth qual é a URL externa da aplicação.
+    # Sem isso, ele usa a porta interna do container (3000) nos redirects,
+    # quebrando o login quando acessado via IP externo ou porta diferente.
+    # Valor configurável em env/local.yaml (keepFrontendUrl).
+    - name: NEXTAUTH_URL
+      value: "http://localhost:3001"  # sobrescrever em env/local.yaml para VM/IP externo
   resources:
     requests:
       cpu: 100m

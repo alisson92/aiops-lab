@@ -46,12 +46,19 @@ wait_for "Prometheus"  "http://localhost:9091/-/ready"
 # Grafana via NodePort (sem port-forward)
 wait_for "Grafana"     "http://localhost:3000/api/health"
 
+# Detecta o IP principal da máquina para exibir URLs acessíveis externamente
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+HOST_IP=${HOST_IP:-localhost}
+
 echo ""
 echo "Serviço          URL"
 echo "─────────────── ──────────────────────────────────"
-echo "Keep frontend    http://localhost:3001"
-echo "Keep API         http://localhost:8081      (X-API-KEY: keepappkey)"
-echo "Grafana          http://localhost:3000      (admin / admin)  [NodePort]"
-echo "Prometheus       http://localhost:9091"
+echo "Keep frontend    http://${HOST_IP}:3001"
+echo "Keep API         http://${HOST_IP}:8081      (X-API-KEY: keepappkey)"
+echo "Grafana          http://${HOST_IP}:3000      (admin / admin)  [NodePort]"
+echo "Prometheus       http://${HOST_IP}:9091"
+echo ""
+echo "⚠  Se o login do Keep redirecionar para localhost, atualize NEXTAUTH_URL:"
+echo "   kubectl set env deployment/keep-frontend NEXTAUTH_URL=http://${HOST_IP}:3001 -n ${NAMESPACE}"
 echo ""
 echo "Para encerrar: pkill -f 'kubectl port-forward'"
