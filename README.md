@@ -6,6 +6,22 @@
 
 ## Como reproduzir
 
+**Pré-requisito zero — instale o `git` se ainda não tiver:**
+
+```bash
+# Debian / Ubuntu / WSL2
+sudo apt-get install -y git
+
+# Fedora / RHEL / CentOS
+sudo dnf install -y git
+
+# macOS
+xcode-select --install
+```
+
+> Windows nativo não é suportado. Use WSL2 com Ubuntu ou Debian:
+> `wsl --install -d Ubuntu` (PowerShell como Administrador).
+
 ```bash
 git clone https://github.com/alisson92/aiops-lab.git && cd aiops-lab
 
