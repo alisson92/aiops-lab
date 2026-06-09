@@ -51,18 +51,34 @@ wait_for_keep() {
 # ─── provider Ollama ──────────────────────────────────────────────────────────
 
 install_ollama_provider() {
-  local installed
-  installed=$(curl -sf "${KEEP_API}/providers" \
+  # Retorna: "installed" | "stale:<id>" (existe mas installed=false) | "absent"
+  # Bug v0.1.96: provider pode existir no DB com installed=false após restart do backend.
+  # Nesse caso o POST /install falha com 4xx — é preciso deletar antes de reinstalar.
+  local state
+  state=$(curl -sf "${KEEP_API}/providers" \
     -H "X-API-KEY: ${API_KEY}" | \
     python3 -c "
 import sys, json
 providers = json.load(sys.stdin)
-print(any(p.get('type') == 'ollama' and p.get('installed') for p in providers))
-" 2>/dev/null || echo "False")
+ollama = next((p for p in providers if p.get('type') == 'ollama'), None)
+if not ollama:
+    print('absent')
+elif ollama.get('installed'):
+    print('installed')
+else:
+    print('stale:' + ollama.get('id', ''))
+" 2>/dev/null || echo "absent")
 
-  if [[ "$installed" == "True" ]]; then
+  if [[ "$state" == "installed" ]]; then
     echo "Provider Ollama já instalado."
     return
+  fi
+
+  if [[ "$state" == stale:* ]]; then
+    local provider_id="${state#stale:}"
+    echo "Provider em estado inconsistente (installed=false). Removendo ID '${provider_id}'..."
+    curl -sf -X DELETE "${KEEP_API}/providers/ollama/${provider_id}" \
+      -H "X-API-KEY: ${API_KEY}" >/dev/null || true
   fi
 
   echo "Instalando provider Ollama..."
