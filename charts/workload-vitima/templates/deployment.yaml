@@ -1,11 +1,8 @@
-# Workload-vítima: Deployment mínimo para injeção de falhas controláveis.
-# Não representa nenhuma aplicação de negócio — serve apenas como alvo dos cenários.
-# A imagem e os parâmetros são trocados pelos scripts em scenarios/ para simular cada falha.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: workload-vitima
-  namespace: aiops-lab
+  namespace: {{ .Release.Namespace }}
   labels:
     app: workload-vitima
     tier: test
@@ -24,7 +21,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: app
-          # nginx-unprivileged: roda como user 101 (non-root), escuta em 8080 por padrão.
+          # nginx-unprivileged: roda como user 101 (non-root), escuta em 8080.
           # O nginx padrão exige root e porta 80 — incompatível com runAsNonRoot: true.
           image: nginxinc/nginx-unprivileged:1.27
           ports:

@@ -1,0 +1,32 @@
+workflow:
+  id: ollama-grafana-alert-enrichment
+  name: Ollama Grafana Alert Enrichment
+  description: |
+    Analisa alertas do Grafana usando Ollama local (gemma2:2b). Enriquece o alerta com RCA gerado por LLM.
+  triggers:
+    - type: alert
+      filters:
+        - key: source
+          value: grafana
+  steps:
+    - name: get-rca
+      provider:
+        config: "{{ providers.ollama-local }}"
+        type: ollama
+        with:
+          prompt: >
+            You are a Kubernetes SRE. Analyze this alert concisely.
+            Alert: {{ alert.name }}
+            Description: {{ alert.description }}
+            Severity: {{ alert.severity }}
+            Respond in JSON: {"root_cause": "one sentence", "immediate_action": "kubectl command or step", "prevention": "one sentence"}
+          model: "gemma2:2b"
+          max_tokens: 300
+  actions:
+    - name: enrich-alert
+      provider:
+        type: mock
+        with:
+          enrich_alert:
+            - key: ai_rca
+              value: "{{ steps.get-rca.results }}"

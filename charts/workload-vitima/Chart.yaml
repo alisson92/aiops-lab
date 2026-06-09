@@ -1,0 +1,5 @@
+apiVersion: v2
+name: workload-vitima
+description: Deployment mínimo para injeção de falhas controláveis no bake-off AIOps.
+type: application
+version: 0.1.0
