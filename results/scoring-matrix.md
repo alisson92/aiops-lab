@@ -229,3 +229,44 @@ HolmesGPT é uma ferramenta projetada para LLMs hospedados em nuvem (GPT-4, Clau
 |---|---|---|
 | `phi3:mini` | Latência | 176s > 120s; RAM quase no limite de 5 GiB anterior |
 | `llama3.2:3b` | Qualidade | Nota 2/5; diagnosticou OOMKilled como problema de scheduling |
+
+---
+
+## Fase 2 — Keep + K8sGPT em conjunto: complementaridade
+
+> Ambas as ferramentas ativas simultaneamente sobre os 4 cenários.
+> Pergunta central: o par soma valor real ou apenas duplica esforço?
+
+### Comparativo de velocidade e qualidade por cenário
+
+| Cenário | K8sGPT (tempo) | K8sGPT (qualidade do finding) | Keep (tempo) | Keep (ai_rca qualidade) |
+|---|---|---|---|---|
+| CrashLoopBackOff | **~24s** (Result CR) | "last termination reason is Error" — genérico, sem causa raiz | ~33s (alerta + ai_rca) | "CrashLoopBackOff — pod unable to complete execution" — genérico, sem causa raiz |
+| OOMKilled | **~49s** | "Pod forcefully terminated due to OOM Killer" + kubectl top + ajuste de limits — correto | ~4m26s¹ | "container terminated by OOM Killer" + kubectl top + ajuste — correto |
+| ImagePullBackOff | **~29s** | **`nginx:this-tag-does-not-exist-99999` não encontrado** — tag exata incluída, melhor contexto | ~4m22s¹ | "pod stuck waiting for docker image" — genérico, sem a tag exata |
+| Readiness Failing | **~49s** | "readiness probe failed, 404 — service unreachable" — **diagnóstico errado** (atribuiu a network issue) | ~4m16s (Grafana `for: 2m`) | "readiness probe is failing" + kubectl describe — parcial mas não errado |
+
+> ¹ Tempos do Keep incluem: coleta Prometheus (~1m), avaliação Grafana (for: 0–1m), agrupamento de notificações, webhook, workflow LLM (~10–20s). K8sGPT não depende de nenhuma dessas etapas — polling direto da API k8s.
+
+### Análise de complementaridade
+
+| Dimensão | K8sGPT | Keep | Complementam? |
+|---|---|---|---|
+| **Velocidade de detecção** | ✅ 24–49s (vencedor claro) | ⚠️ 33s–4m26s (depende do Grafana) | Sim — K8sGPT avisa antes em todos os cenários |
+| **Contexto k8s no diagnóstico** | ✅ Acessa API diretamente — inclui tag de imagem, reason do container | ⚠️ Só recebe payload Grafana (name/severity/description) | Sim — K8sGPT tem contexto mais rico |
+| **Qualidade do RCA** | ⚠️ Cenário 4 errou a causa raiz (network vs probe path) | ⚠️ Genérico mas nunca factualmente errado | Sim — Keep como "segundo voto" evita false-root-cause |
+| **Gestão do ciclo de vida do alerta** | ❌ Não tem — só cria CR, não rastreia resolução | ✅ Fingerprint, dedup, histórico, status resolved/firing | Sim — Keep é o hub que K8sGPT não tem |
+| **Integração com Teams** | ❌ Não tem | ✅ Contact point nativo | Sim — Keep é o único canal de notificação |
+| **Footprint combinado** | ~256Mi | ~2 GiB | Trade-off — custo de RAM vale pela funcionalidade |
+| **Tier de deploy** | Tier B (ClusterRole + CRD) | Tier A (namespaced) | Tensão — K8sGPT requer aprovação adicional |
+
+### Conclusão da Fase 2
+
+**O par se complementa, com papéis distintos e não sobrepostos:**
+
+- **K8sGPT = radar precoce**: detecta em 24–49s via polling da API k8s com contexto rico (reason, tag de imagem, exit code). Não tem alerting, não tem integração com Teams, não rastreia resolução.
+- **Keep = plataforma de resposta**: recebe de qualquer fonte (Grafana, webhook), gerencia ciclo de vida dos alertas, enriquece com LLM, notifica o Teams. Latência maior porque depende do pipeline Grafana.
+
+**Lacuna crítica na integração**: K8sGPT não tem como enviar findings diretamente para o Keep na versão v0.4.33/operator v0.2.27 (sink suporta apenas Slack, Mattermost, CloudEvents; Keep não tem receiver CloudEvents nativo). O dado do K8sGPT fica isolado no CR `Result` — visível apenas via kubectl, não no dashboard do Keep nem no Teams.
+
+**Recomendação para produção**: usar Keep como hub central e K8sGPT como fonte adicional de diagnóstico complementar ao Grafana. A integração ideal exigiria um adapter CloudEvents→Keep (ex: pequeno job que consome os Results CRs do K8sGPT e os publica no Keep via `/alerts/event/prometheus`), o que está fora do escopo deste bake-off.
