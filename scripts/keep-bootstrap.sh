@@ -100,13 +100,15 @@ else:
 # ─── workflow ─────────────────────────────────────────────────────────────────
 
 import_workflow() {
+  # Keep gera um UUID novo a cada import — checar pelo campo 'name' do workflow,
+  # que mapeia para o campo 'name:' do YAML (estável entre imports).
   local exists
   exists=$(curl -sf "${KEEP_API}/workflows" \
     -H "X-API-KEY: ${API_KEY}" | \
     python3 -c "
 import sys, json
 workflows = json.load(sys.stdin)
-print(any(w.get('id') == 'ollama-grafana-alert-enrichment' for w in workflows))
+print(any(w.get('name') == 'Ollama Grafana Alert Enrichment' for w in workflows))
 " 2>/dev/null || echo "False")
 
   if [[ "$exists" == "True" ]]; then

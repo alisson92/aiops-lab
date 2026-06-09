@@ -1,3 +1,6 @@
+# REFERÊNCIA APENAS — cópia dos defaults upstream do chart keephq/keep v0.1.96.
+# NÃO é usado pelo helmfile. O helmfile aplica somente values-lab.yaml.
+# Mantido aqui para facilitar a leitura do que está sendo sobrescrito.
 namespace: keep
 serviceAccount:
   create: true

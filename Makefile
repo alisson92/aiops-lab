@@ -15,16 +15,20 @@ help: ## Mostra esta ajuda
 
 setup: cluster-up deploy bootstrap ## Sobe o lab completo do zero (≈10 min)
 
-cluster-up: ## Cria o cluster Kind aiops-lab
-	kind create cluster --name $(CLUSTER_NAME) --config kind-config.yaml
+cluster-up: ## Cria o cluster Kind aiops-lab (idempotente)
+	@if kind get clusters 2>/dev/null | grep -q "^$(CLUSTER_NAME)$$"; then \
+		echo "Cluster '$(CLUSTER_NAME)' já existe. Pulando criação."; \
+	else \
+		kind create cluster --name $(CLUSTER_NAME) --config kind-config.yaml; \
+	fi
 
-deploy: ## Aplica todos os releases via helmfile (requer cluster ativo)
+deploy: ## Aplica todos os releases via helmfile (⚠️ remove holmesgpt se presente)
 	helmfile -e $(ENV) sync
 
 bootstrap: ## Registra Ollama provider e workflow no Keep (idempotente)
 	bash scripts/keep-bootstrap.sh
 
-pf: ## Sobe port-forwards para acesso local (Grafana, Prometheus, Keep)
+pf: ## Sobe port-forwards e verifica conectividade (Grafana via NodePort, sem PF)
 	bash scripts/port-forward.sh
 
 teardown: ## Destroi o cluster e todos os dados (pede confirmação)
