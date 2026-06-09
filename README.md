@@ -27,6 +27,18 @@ git clone https://github.com/alisson92/aiops-lab.git && cd aiops-lab
 
 make check        # verifica ferramentas, RAM, disco e portas         (30s)
 make setup        # cria cluster + sobe todos os releases + bootstrap (~10 min)
+```
+
+> **`make check` apontou que o `helmfile` está faltando?**
+> Instale com os comandos abaixo (o release é um `.tar.gz` — não um binário direto):
+> ```bash
+> curl -Lo /tmp/helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_amd64.tar.gz
+> tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
+> sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile
+> rm /tmp/helmfile /tmp/helmfile.tar.gz
+> ```
+
+```bash
 
 # uso diário — após reiniciar o PC
 make pf           # sobe todos os port-forwards e imprime as URLs

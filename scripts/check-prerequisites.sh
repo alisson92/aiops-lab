@@ -159,8 +159,11 @@ if ! command -v helmfile &>/dev/null; then
   if $IS_MAC; then
     info "brew install helmfile"
   else
-    info "curl -Lo /tmp/helmfile https://github.com/helmfile/helmfile/releases/download/v0.167.1/helmfile_linux_${ARCH}"
-    info "sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile && rm /tmp/helmfile"
+    # A partir da v0.150+, o release é um .tar.gz (não binário direto)
+    info "curl -Lo /tmp/helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_${ARCH}.tar.gz"
+    info "tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile"
+    info "sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile"
+    info "rm /tmp/helmfile /tmp/helmfile.tar.gz"
   fi
 else
   ok "helmfile v$(helmfile version 2>/dev/null | awk '/Version/{print $2}' | head -1)"
