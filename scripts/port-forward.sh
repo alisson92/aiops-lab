@@ -20,9 +20,10 @@ pkill -f "kubectl port-forward" 2>/dev/null || true
 sleep 1
 
 echo "Subindo port-forwards..."
-kubectl port-forward svc/keep-backend                       -n "${NAMESPACE}" 8081:8080  >/dev/null 2>&1 &
-kubectl port-forward svc/keep-frontend                      -n "${NAMESPACE}" 3001:3000  >/dev/null 2>&1 &
-kubectl port-forward svc/kube-prometheus-stack-prometheus   -n "${NAMESPACE}" 9091:9090  >/dev/null 2>&1 &
+# --address 0.0.0.0 expõe em todas as interfaces — necessário para acesso externo à VM
+kubectl port-forward --address 0.0.0.0 svc/keep-backend                     -n "${NAMESPACE}" 8081:8080  >/dev/null 2>&1 &
+kubectl port-forward --address 0.0.0.0 svc/keep-frontend                    -n "${NAMESPACE}" 3001:3000  >/dev/null 2>&1 &
+kubectl port-forward --address 0.0.0.0 svc/kube-prometheus-stack-prometheus -n "${NAMESPACE}" 9091:9090  >/dev/null 2>&1 &
 
 # ─── verificar conectividade ──────────────────────────────────────────────────
 
