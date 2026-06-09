@@ -5,7 +5,7 @@
 
 ---
 
-## Estado atual: Bake-off concluído → ADR redigido · Próximo: roteiro de demo
+## Estado atual: Bake-off concluído · ADR redigida · Roteiro de demo criado · Lab reprodutível validado em WSL2 e Debian
 
 ---
 
@@ -134,13 +134,14 @@ HolmesGPT foi eliminado na Fase 1. Tríade inviável. Registrada como N/A no ADR
 
 ---
 
-## Próximo passo: roteiro de demonstração ao vivo
+## Reprodutibilidade ✅ CONCLUÍDA
 
-Preparar roteiro de demo para apresentação ao time técnico e cliente, cobrindo:
-1. Cenário de falha ao vivo (CrashLoopBackOff ou OOMKill)
-2. Keep recebendo o alerta e exibindo o ai_rca no dashboard
-3. K8sGPT Finding CR no terminal (resultado complementar)
-4. Comparativo de velocidade e qualidade na tela
+Fluxo `make check → make setup → make pf` validado em dois ambientes:
+- WSL2 (Ubuntu/Debian sobre Windows)
+- VM Debian nativa (4 vCPUs, 11 GB RAM, 16 GB disco)
+
+Ferramentas verificadas automaticamente: docker, kind, kubectl, helm, helmfile, make, python3, curl, pkill, git, k9s.
+Requisitos mínimos documentados com base em medição real do cluster.
 
 ---
 

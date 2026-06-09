@@ -6,3 +6,7 @@ storageClass: <EKS_STORAGECLASS_NAME>   # confirmar com time de infra antes do d
 ollamaEndpoint: http://ollama.aiops-lab.svc.cluster.local:11434
 grafanaAdminPassword: ""                # injetado via Secret externo no pipeline
 teamsWebhookUrl: ""                     # injetado via variável gerenciada centralmente
+
+# URL externa do Keep frontend — necessária para redirects corretos do NextAuth.
+# Em produção, usar a URL real do Ingress/LoadBalancer do Keep frontend.
+keepFrontendUrl: ""                     # ex: https://keep.empresa.com

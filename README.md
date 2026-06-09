@@ -58,11 +58,14 @@ make setup        # cria cluster + sobe todos os releases + bootstrap (~10 min)
 make pf           # sobe todos os port-forwards e imprime as URLs
 ```
 
-| URL | Credenciais |
-|---|---|
-| Keep dashboard `http://localhost:3001` | API key: `keepappkey` |
-| Grafana `http://localhost:3000` | admin / admin |
-| Prometheus `http://localhost:9091` | — |
+> `make pf` detecta e imprime o IP real da máquina. Em WSL2/local use `localhost`; em VM use o IP exibido.
+
+| Serviço | URL | Acesso |
+|---|---|---|
+| Keep frontend | `http://<IP>:3001` | port-forward |
+| Keep API | `http://<IP>:8081` | port-forward · header `X-API-KEY: keepappkey` |
+| Grafana | `http://<IP>:3000` | NodePort · admin / admin |
+| Prometheus | `http://<IP>:9091` | NodePort |
 
 > Resultado esperado: cluster com Prometheus → Grafana → Keep → Ollama (gemma2:2b) operacionais.
 > K8sGPT analisando o namespace `aiops-lab` automaticamente a cada ciclo.
@@ -85,7 +88,7 @@ make teardown
 
 Este projeto **não é** uma POC descartável nem um MVP de produto. É uma **avaliação técnica (bake-off)**: colocar as três ferramentas no mesmo banco de provas, rodar os mesmos cenários de falha, pontuá-las contra critérios definidos *antes* dos testes e sair com uma decisão defensável.
 
-- **Validação:** local, em cluster Kind (WSL2).
+- **Validação:** local, em cluster Kind (WSL2 e Debian nativo).
 - **Alvo de implementação:** produção, em Amazon EKS, via Helm.
 - **Público da recomendação:** time técnico inteiro.
 
@@ -263,17 +266,19 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 
 ## 13. Pré-requisitos
 
-- WSL2 + Docker/containerd
-- `kind`, `kubectl`, `helm`, `helmfile`, `make`
-- Recursos locais compatíveis com inferência CPU-only (~8 GB RAM disponíveis)
+Consulte a tabela de requisitos de hardware no início deste README e execute `make check` para validação automática do ambiente.
 
-> O `make deploy` já cuida de puxar o modelo `gemma2:2b` automaticamente no primeiro boot do Ollama. Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
+**Ferramentas obrigatórias:** `docker`, `kind`, `kubectl`, `helm`, `helmfile`, `make`, `python3`, `curl`, `pkill`, `git`, `k9s`
+
+**Sistemas operacionais suportados:** Linux (Debian/Ubuntu/WSL2) · macOS · Windows via WSL2
+
+> O `make setup` cuida de puxar o modelo `gemma2:2b` automaticamente no primeiro boot do Ollama. Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
 
 ---
 
 ## 14. Status
 
-**Bake-off concluído. ADR redigida.**
+**Bake-off concluído. ADR redigida. Lab reprodutível validado em WSL2 e Debian nativo.**
 
 - [x] Definição e refinamento do projeto (este README)
 - [x] Esqueleto do repositório + `CLAUDE.md`
@@ -288,6 +293,7 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 - [x] **Fase 2** — Keep + K8sGPT em conjunto: papéis complementares identificados
 - [x] **Fase 3** — pulada (HolmesGPT eliminado)
 - [x] **Fase 4** — pontuação + ADR + roteiro de demo
+- [x] **Reprodutibilidade** — `make check → make setup → make pf` validado em WSL2 e Debian (4 vCPUs, 11 GB RAM)
 
 | Artefato | Link |
 |---|---|
