@@ -57,7 +57,10 @@ Vagrant.configure("2") do |config|
     hv.maxmemory                       = 8192   # sem maxmemory, o Hyper-V entra em modo dinâmico
                                                 # com faixas inconsistentes — forçar max == startup
                                                 # resolve "Maximum memory < required minimum"
-    hv.enable_virtualization_extensions = true
+    # enable_virtualization_extensions NÃO é necessário para o Kind.
+    # Kind usa Docker + namespaces/cgroups do Linux — não sobe VMs dentro da VM.
+    # Habilitar causava "VM could not be started — configuration error" porque o box
+    # generic/debian12 tem versão de configuração de VM incompatível com nested virt.
   end
 
   # ── Port forwarding (VirtualBox only) ────────────────────────────────────────
