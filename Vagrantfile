@@ -53,7 +53,10 @@ Vagrant.configure("2") do |config|
     override.vm.box                    = "generic/debian12"
     hv.vmname                          = "aiops-lab"
     hv.cpus                            = 4
-    hv.memory                          = 8192
+    hv.memory                          = 8192   # startup memory
+    hv.maxmemory                       = 8192   # sem maxmemory, o Hyper-V entra em modo dinâmico
+                                                # com faixas inconsistentes — forçar max == startup
+                                                # resolve "Maximum memory < required minimum"
     hv.enable_virtualization_extensions = true
   end
 
