@@ -48,5 +48,10 @@
     "model": "qwen2.5:3b",
     "scenario": "ImagePullBackOff",
     "ai_rca": null
+  },
+  {
+    "model": "qwen2.5:3b",
+    "scenario": "Readiness",
+    "ai_rca": null
   }
 ]
