@@ -80,7 +80,13 @@ Vagrant.configure("2") do |config|
 
   # ── Provisionamento ───────────────────────────────────────────────────────────
   # Instala todas as dependências e executa make setup.
-  # Com Hyper-V: o Vagrant usará SMB para sincronizar /vagrant — será solicitado
-  # usuário e senha Windows durante o primeiro `vagrant up`.
-  config.vm.provision "shell", path: "scripts/bootstrap-vm.sh"
+  #
+  # GIT_REPO_URL: URL do remote origin avaliada no host no momento do `vagrant up`.
+  # O bootstrap-vm.sh usa essa variável como fallback caso /vagrant não esteja montado
+  # (o mount SMB do Hyper-V pode falhar silenciosamente por firewall ou falta de cifs-utils).
+  git_remote = `git remote get-url origin 2>/dev/null`.strip rescue ""
+
+  config.vm.provision "shell",
+    path: "scripts/bootstrap-vm.sh",
+    env: { "GIT_REPO_URL" => git_remote }
 end

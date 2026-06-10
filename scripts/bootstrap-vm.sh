@@ -22,6 +22,21 @@ log()  { echo -e "\n\033[1;32m▶  $*\033[0m"; }
 info() { echo    "   → $*"; }
 ok()   { echo -e "   \033[0;32m✓\033[0m $*"; }
 
+# ── 0. garantir que /vagrant está disponível ─────────────────────────────────
+# Com Hyper-V o Vagrant monta /vagrant via SMB. Se o mount falhar silenciosamente
+# (firewall Windows, cifs-utils ausente), o provisionador roda sem os arquivos do projeto.
+# Fallback: clonar pelo GIT_REPO_URL passado como env var pelo Vagrantfile.
+if [[ ! -f "${PROJECT_DIR}/Makefile" ]]; then
+  log "Pasta ${PROJECT_DIR} não montada — tentando clonar repositório..."
+  if [[ -z "${GIT_REPO_URL:-}" ]]; then
+    echo "[ERRO] ${PROJECT_DIR} não montado e GIT_REPO_URL não definido." >&2
+    echo "       Execute: vagrant destroy -f && vagrant up --provider=hyperv" >&2
+    exit 1
+  fi
+  git clone "${GIT_REPO_URL}" "${PROJECT_DIR}"
+  ok "Repositório clonado em ${PROJECT_DIR}"
+fi
+
 # ── 1. pacotes base ───────────────────────────────────────────────────────────
 
 log "Atualizando pacotes base..."
