@@ -74,6 +74,12 @@ backend:
 frontend:
   replicaCount: 1
   env:
+    # Next.js 15 usa HOSTNAME para determinar o endereço de bind.
+    # No Kubernetes, HOSTNAME é injetado como o nome do pod (ex: keep-frontend-xxx),
+    # que resolve para o IP do pod — Next.js fica escutando só no IP do pod, não em 0.0.0.0.
+    # Sobrescrever com 0.0.0.0 força o bind em todas as interfaces (obrigatório para port-forward e NodePort).
+    - name: HOSTNAME
+      value: "0.0.0.0"
     # NEXTAUTH_URL informa ao NextAuth qual é a URL externa da aplicação.
     # Sem isso, ele usa a porta interna do container (3000) nos redirects,
     # quebrando o login quando acessado via IP externo ou porta diferente.
