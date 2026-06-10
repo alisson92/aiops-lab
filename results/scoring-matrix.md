@@ -336,3 +336,59 @@ HolmesGPT é uma ferramenta projetada para LLMs hospedados em nuvem (GPT-4, Clau
 **Inconsistência de formato é a principal limitação operacional do gemma2:2b.** Em 3 de 4 cenários o output não é JSON puro — quebraria um parser downstream sem tratamento de erro. Modelos maiores da matriz (phi3.5:3.8b, mistral:7b) têm maior aderência a instruções de formato e devem produzir JSON consistente.
 
 > ⚠️ Os scores de qualidade acima refletem o modelo baseline. Com o modelo recomendado pela Fase 0 (`mistral:7b-instruct-q4_K_M`, 4/5 de qualidade), espera-se: JSON consistente, RCAs mais específicos ao contexto, e ações imediatas com variáveis reais (nome do pod, namespace) — elevando a nota de "Qualidade do RCA" do Keep de 3 para potencialmente 4/5.
+
+---
+
+## Investigação de qualidade do ai_rca — modelo e formato (2026-06-10)
+
+> Investigação adicional após validação na VM. Objetivo: identificar modelo e configuração
+> ideais para o workflow Keep em ambiente CPU-only com cluster em uso contínuo.
+
+### Problemas identificados e resolvidos
+
+| Problema | Sintoma | Causa raiz | Solução |
+|---|---|---|---|
+| **Cold start** | Primeiro alerta após inatividade falha com Ollama 500 | Ollama descarrega modelos após 5min de inatividade (padrão) | `OLLAMA_KEEP_ALIVE=-1` + `run: [phi3.5:3.8b]` no values |
+| **Formato inconsistente** | ai_rca embrulhado em markdown, código duplicado, texto extra | Modelos instruct ignoram parcialmente instruções de formato no prompt | `structured_output_format: json` na chamada ao provider Ollama |
+| **mistral:7b instável** | Ollama 500 em todos os cenários com mistral | Requer 4.5 GiB de RAM *livres*; cluster com 7+ dias de uptime tinha apenas 3.9 GiB free (buffer/cache não contado) | Descartado para uso contínuo; phi3.5:3.8b adotado |
+
+### Modelo escolhido para o workflow: `phi3.5:3.8b`
+
+| Critério | gemma2:2b | mistral:7b | phi3.5:3.8b |
+|---|:---:|:---:|:---:|
+| RAM necessária | 1.6 GiB | 4.5 GiB free | 2.2 GiB |
+| Latência | ~14s | ~84s | ~36s |
+| Qualidade RCA | 3/5 | 3/5* | 3/5 |
+| Formato JSON consistente | ❌ | ❌* | ✅ (com `format:json`) |
+| Estável em cluster com carga | ✅ | ❌ | ✅ |
+
+> *mistral:7b não chegou a ser validado com formato correto — falhou por memória antes disso.
+
+### Configuração final do workflow (commit `4c64e67`)
+
+```yaml
+model: phi3.5:3.8b
+structured_output_format: "json"   # JSON puro — elimina markdown e texto extra
+```
+
+```yaml
+# charts/ollama/values.yaml
+extraEnv:
+  - name: OLLAMA_KEEP_ALIVE
+    value: "-1"              # modelo nunca descarregado — elimina cold start
+models:
+  run:
+    - phi3.5:3.8b            # pré-carregado na inicialização do pod
+```
+
+### Resultado final validado
+
+`ai_rca` com `phi3.5:3.8b` + `format:json` + `KEEP_ALIVE=-1`:
+```json
+{
+  "root_cause": "...",
+  "immediate_action": "...",
+  "prevention": "..."
+}
+```
+JSON limpo, três campos estruturados, sem markdown, sem duplicação. Workflow estável sob uso contínuo.
