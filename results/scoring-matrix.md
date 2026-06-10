@@ -220,21 +220,30 @@ HolmesGPT é uma ferramenta projetada para LLMs hospedados em nuvem (GPT-4, Clau
 | `qwen2.5:3b` | `OOMKilled container=app` | ✅ | Aumentar limits, otimizar código, mais recursos no node |
 | `mistral:7b-instruct-q4_K_M` | `OOMKilled exitCode=137 container=app` | ✅ | `kubectl describe pod`, editar YAML limits, apply, monitorar |
 
-### Modelos que avançam para Fase 1
+### Classificação final dos modelos
 
-| Modelo | Motivo |
-|---|---|
-| `gemma2:2b` | Baseline viável, menor RAM, boa qualidade |
-| `phi3.5:3.8b` | Latência excelente (36s), qualidade equivalente ao baseline |
-| `qwen2.5:3b` | Menor RAM pico (3 GB), latência aceitável |
-| `mistral:7b-instruct-q4_K_M` | Melhor qualidade RCA (4/5), mais detalhado — exige 7 GiB Ollama |
+**Tier 1 — Eliminados por razões intrínsecas ao modelo**
 
-### Modelos eliminados
+| Modelo | Gate violado | Motivo | Os controles de infra mudam isso? |
+|---|---|---|:---:|
+| `phi3:mini` | Latência | 176s de inferência — acima do gate de 120s | ❌ Latência é do modelo, não do cold start |
+| `llama3.2:3b` | Qualidade | Diagnosticou OOMKilled como scheduling (erro de raciocínio) | ❌ `format:json` melhora estrutura, não raciocínio |
 
-| Modelo | Gate violado | Motivo |
-|---|---|---|
-| `phi3:mini` | Latência | 176s > 120s; RAM quase no limite de 5 GiB anterior |
-| `llama3.2:3b` | Qualidade | Nota 2/5; diagnosticou OOMKilled como problema de scheduling |
+**Tier 2 — Viáveis no lab (validados com controles de infra aplicados)**
+
+| Modelo | RAM | Latência | Qualidade RCA | Adotado no workflow |
+|---|---|---|:---:|:---:|
+| `gemma2:2b` | 1.6 GiB | ~14s | 3/5 | — |
+| `phi3.5:3.8b` | 2.2 GiB | ~36s | 3/5 | ✅ modelo atual |
+| `qwen2.5:3b` | 1.9 GiB | ~85s | 3/5 | — |
+
+**Tier 3 — Viável em produção, requer validação em EKS**
+
+| Modelo | RAM necessária | Latência | Qualidade RCA | Bloqueio atual |
+|---|---|---|:---:|---|
+| `mistral:7b-instruct-q4_K_M` | 4.5 GiB livres | ~84s | **4/5** | Hardware local (VM 8 GiB). Em node EKS ≥ 12 GiB é viável. Candidato preferencial para produção. |
+
+> **Nota:** a separação Tier 2 / Tier 3 é deliberada. `mistral:7b` não foi eliminado por qualidade — foi bloqueado por uma restrição de hardware que não existe em produção. Eliminar definitivamente um modelo por um constraint temporário de lab seria um erro metodológico. A validação em EKS é o próximo passo antes de definir o modelo de produção.
 
 ---
 

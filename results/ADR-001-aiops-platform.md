@@ -109,7 +109,7 @@ HolmesGPT foi projetado para LLMs hospedados em nuvem (GPT-4, Claude) onde cada 
 | Custo zero | ✅ |
 | **Tier** | ✅ **Tier A** — 100% namespaced (Deployment, Service, PVC, ServiceAccount) |
 
-**Evidências de desempenho (modelo gemma2:2b, 4 cenários):**
+**Evidências de desempenho (modelo gemma2:2b — baseline; ver seção 3.4 para comparativo completo):**
 
 | Cenário | Detecção (Grafana→Keep) | ai_rca gerado? | Causa correta? |
 |---|---|:---:|:---:|
@@ -125,6 +125,52 @@ HolmesGPT foi projetado para LLMs hospedados em nuvem (GPT-4, Claude) onde cada 
 **Pontos fortes:** único candidato 100% Tier A; integração nativa com Grafana→Teams (fluxo exato do cliente); fingerprinting e dedup nativos; trilha de auditoria completa (workflow runs, alert history); ai_rca nunca produziu diagnóstico factualmente errado (mais conservador que K8sGPT).
 
 **Limitações:** setup mais complexo (4 componentes + contact point + workflow + Ollama provider); footprint maior (~2 GiB RAM); projeto mais jovem com alguns bugs de edge case encontrados (provider perde estado em restarts, contact point precisa ser provisionado via arquivo para sobreviver a upgrades); contexto do LLM limitado ao payload Grafana (sem acesso direto à API k8s).
+
+---
+
+---
+
+## 3.4 Seleção do modelo LLM para o Keep
+
+O Keep delega a inferência ao Ollama. A escolha do modelo afeta diretamente a qualidade do `ai_rca`, a latência do enriquecimento e a estabilidade sob carga contínua.
+
+### Configuração base obrigatória (independente do modelo)
+
+Dois problemas de infraestrutura foram identificados durante os testes e corrigidos antes de qualquer comparação entre modelos — sem esses controles, falhas de infraestrutura seriam erroneamente atribuídas à qualidade do modelo:
+
+| Problema | Sintoma | Solução |
+|---|---|---|
+| **Cold start** | Ollama descarrega modelos após 5min de inatividade → primeiro alerta falha com 500 | `OLLAMA_KEEP_ALIVE=-1` + `run: [<modelo>]` no chart |
+| **Formato inconsistente** | Modelos embrulham JSON em markdown, duplicam output, adicionam texto extra | `structured_output_format: json` no provider Ollama do Keep |
+
+### Classificação dos modelos por viabilidade
+
+**Tier 1 — Eliminados por razões intrínsecas (não mudam com hardware superior)**
+
+| Modelo | Gate violado | Motivo | Impacto dos controles de infra |
+|---|---|---|---|
+| `phi3:mini` | Latência | 176s de inferência — ultrapassa gate de 120s | Nenhum — latência é do modelo, não do cold start |
+| `llama3.2:3b` | Qualidade | Atribuiu OOMKilled a problema de scheduling (erro de raciocínio) | Nenhum — `format:json` melhora estrutura, não raciocínio |
+
+**Tier 2 — Viáveis no lab (validados com os controles de infra)**
+
+| Modelo | RAM | Latência | Qualidade RCA | JSON consistente |
+|---|---|---|:---:|:---:|
+| `gemma2:2b` | 1.6 GiB | ~14s | 3/5 | ✅ (com `format:json`) |
+| `phi3.5:3.8b` | 2.2 GiB | ~36s | 3/5 | ✅ (com `format:json`) |
+| `qwen2.5:3b` | 1.9 GiB | ~85s | 3/5 | ✅ (com `format:json`) |
+
+**Tier 3 — Viável em produção, requer validação em EKS**
+
+| Modelo | RAM necessária | Latência | Qualidade RCA | Restrição atual |
+|---|---|---|:---:|---|
+| `mistral:7b-instruct-q4_K_M` | 4.5 GiB livres | ~84s | **4/5** | Bloqueado por RAM no lab (VM 8 GiB com múltiplos serviços). Em node EKS ≥ 12 GiB é viável com folga. |
+
+> **Importante:** a eliminação do `mistral:7b` no lab é uma limitação de hardware local, não do modelo. Em produção com node `t3.xlarge` (16 GiB) ou equivalente, é o modelo de maior qualidade testado e deve ser o candidato preferencial. **Validação em EKS é recomendada antes de definir o modelo de produção.**
+
+### Modelo adotado no lab: `phi3.5:3.8b`
+
+Melhor relação latência (36s) × qualidade (3/5) × estabilidade para o hardware disponível localmente. Configuração final persistida em `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `charts/ollama/values.yaml`.
 
 ---
 
@@ -179,6 +225,7 @@ Estruturalmente inviável em ambiente CPU-only com modelos open-source disponív
 
 ### Médio prazo
 - [ ] Avaliar aprovação Tier B para K8sGPT junto ao cliente (valor: detecção 24–49s antes do Grafana disparar)
+- [ ] **Validar `mistral:7b-instruct-q4_K_M` em node EKS ≥ 12 GiB** — modelo de maior qualidade testado (4/5); bloqueado apenas por hardware local; candidato preferencial para produção se validado
 - [ ] Migrar regras de alerta Grafana para IaC/Terraform (atualmente criadas via provisioning no chart)
 - [ ] Adicionar adapter CloudEvents→Keep se K8sGPT for aprovado (integração de findings no dashboard do Keep)
 
@@ -186,7 +233,9 @@ Estruturalmente inviável em ambiente CPU-only com modelos open-source disponív
 | Risco | Probabilidade | Mitigação |
 |---|:---:|---|
 | Provider Ollama perde estado em restart do Keep backend | Média | Já mitigado via Secret no k8s — confirmar na versão de produção |
-| Latência LLM (10–20s) causa timeout no workflow | Baixa | Keep tem retry configurável; gemma2:2b responde em <30s em CPU |
+| Latência LLM (10–20s) causa timeout no workflow | Baixa | Keep tem retry configurável; phi3.5:3.8b responde em ~36s em CPU |
+| Cold start Ollama em restart de pod | Média | `OLLAMA_KEEP_ALIVE=-1` + modelo na lista `run:` — eliminado em lab, confirmar em EKS |
+| mistral:7b instável em node com pouca RAM livre | Média | Dimensionar node com ≥ 12 GiB RAM; validar antes de adotar em produção |
 | HolmesGPT readequado para nuvem no futuro | Alta | Manter avaliação periódica; se cliente aprovar LLM pago, retomar |
 
 ---
