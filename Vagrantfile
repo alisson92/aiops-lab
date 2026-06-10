@@ -81,10 +81,20 @@ Vagrant.configure("2") do |config|
   # ── Provisionamento ───────────────────────────────────────────────────────────
   # Instala todas as dependências e executa make setup.
   #
-  # GIT_REPO_URL: URL do remote origin avaliada no host no momento do `vagrant up`.
+  # GIT_REPO_URL: URL do remote origin lida diretamente do .git/config (puro Ruby,
+  # sem chamar shell — backticks com 2>/dev/null falham no cmd.exe do Windows).
   # O bootstrap-vm.sh usa essa variável como fallback caso /vagrant não esteja montado
   # (o mount SMB do Hyper-V pode falhar silenciosamente por firewall ou falta de cifs-utils).
-  git_remote = `git remote get-url origin 2>/dev/null`.strip rescue ""
+  git_config_path = File.join(File.dirname(__FILE__), ".git", "config")
+  git_remote = ""
+  if File.exist?(git_config_path)
+    File.readlines(git_config_path).each do |line|
+      if line.strip.start_with?("url =")
+        git_remote = line.strip.sub(/^url\s*=\s*/, "").strip
+        break
+      end
+    end
+  end
 
   config.vm.provision "shell",
     path: "scripts/bootstrap-vm.sh",
