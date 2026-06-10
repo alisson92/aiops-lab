@@ -2,7 +2,7 @@ workflow:
   id: ollama-grafana-alert-enrichment
   name: Ollama Grafana Alert Enrichment
   description: |
-    Analisa alertas do Grafana usando Ollama local (gemma2:2b). Enriquece o alerta com RCA gerado por LLM.
+    Analisa alertas do Grafana usando Ollama local (phi3.5:3.8b). Enriquece o alerta com RCA gerado por LLM.
   triggers:
     - type: alert
       filters:
@@ -15,13 +15,18 @@ workflow:
         type: ollama
         with:
           prompt: >
-            You are a Kubernetes SRE. Analyze this alert concisely.
+            You are a Kubernetes SRE. Analyze the alert below and respond with a JSON object.
+
             Alert: {{ alert.name }}
             Description: {{ alert.description }}
             Severity: {{ alert.severity }}
-            Respond in JSON: {"root_cause": "one sentence", "immediate_action": "kubectl command or step", "prevention": "one sentence"}
-          model: "gemma2:2b"
+
+            Required JSON fields: root_cause (one sentence), immediate_action (specific kubectl command), prevention (one sentence)
+          model: "phi3.5:3.8b"
           max_tokens: 300
+          # Força JSON puro no nível da API do Ollama — elimina markdown e texto extra
+          # independente do comportamento padrão do modelo.
+          structured_output_format: "json"
   actions:
     - name: enrich-alert
       provider:

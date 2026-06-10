@@ -102,10 +102,11 @@ ollama:
       - gemma2:2b
 
     # -- List of models to load in memory at container startup
-    # run:
-    #  - llama2
-    #  - mistral
-    run: []
+    # Modelo do workflow Keep pré-carregado para evitar cold start:
+    # sem isso, o Ollama carrega lazily e o primeiro alerta (especialmente
+    # os com for:0s como OOMKilled) falha com 500 enquanto o modelo carrega.
+    run:
+      - phi3.5:3.8b
 
     # -- List of models to create at container startup, there are two options
     # 1. Create a raw model
@@ -409,7 +410,12 @@ extraArgs: []
 
 # -- Additional environments variables on the output Deployment definition.
 # For extra OLLAMA env, please refer to https://github.com/ollama/ollama/blob/main/envconfig/config.go
-extraEnv: []
+extraEnv:
+  # Desabilita o TTL de descarregamento de modelos (padrão: 5 min).
+  # Sem isso, o Ollama descarrega o modelo após inatividade e o primeiro
+  # alerta seguinte falha com 500 enquanto o modelo recarrega (cold start).
+  - name: OLLAMA_KEEP_ALIVE
+    value: "-1"
 #  - name: OLLAMA_DEBUG
 #    value: "1"
 
