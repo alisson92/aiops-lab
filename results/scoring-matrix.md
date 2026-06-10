@@ -137,6 +137,12 @@ K8sGPT opera como ferramenta paralela de diagnóstico, sem integração com o fl
 **Recomendação para produção:**
 Estender o workflow com um step de provider `kubernetes` antes do LLM — coletar `kubectl describe pod` e injetar no prompt. Isso eliminaria a limitação de contexto e elevaria a qualidade do RCA para todos os cenários.
 
+**Nota sobre qualidade do modelo e os scores acima:**
+Os RCAs registrados foram gerados com `gemma2:2b` (modelo baseline mínimo — 2B parâmetros, ~1.6 GB RAM). Os scores de qualidade (ex: "Qualidade do RCA: 3/5") refletem esse modelo. A Fase 0 identificou `mistral:7b-instruct-q4_K_M` como modelo de maior qualidade (4/5), e `phi3.5:3.8b` com melhor relação latência/qualidade. Em produção, com o modelo adequado:
+- Espera-se maior consistência de formato JSON (gemma2:2b vaza markdown e blocos inválidos)
+- RCAs mais profundos e específicos ao contexto do alerta
+- As limitações de qualidade documentadas acima são do modelo, **não da plataforma Keep**
+
 ---
 
 ## Fase 1 — K8sGPT: conclusão e achados técnicos
@@ -270,3 +276,63 @@ HolmesGPT é uma ferramenta projetada para LLMs hospedados em nuvem (GPT-4, Clau
 **Lacuna crítica na integração**: K8sGPT não tem como enviar findings diretamente para o Keep na versão v0.4.33/operator v0.2.27 (sink suporta apenas Slack, Mattermost, CloudEvents; Keep não tem receiver CloudEvents nativo). O dado do K8sGPT fica isolado no CR `Result` — visível apenas via kubectl, não no dashboard do Keep nem no Teams.
 
 **Recomendação para produção**: usar Keep como hub central e K8sGPT como fonte adicional de diagnóstico complementar ao Grafana. A integração ideal exigiria um adapter CloudEvents→Keep (ex: pequeno job que consome os Results CRs do K8sGPT e os publica no Keep via `/alerts/event/prometheus`), o que está fora do escopo deste bake-off.
+
+---
+
+## Validação em VM Hyper-V — 2026-06-10
+
+> Execução dos 4 cenários de falha na VM Vagrant (Hyper-V, `generic/debian12`, 4 vCPUs / 8 GB RAM).
+> Objetivo: confirmar reprodutibilidade do fluxo end-to-end fora do WSL2 e registrar outputs reais do ai_rca.
+> Modelo utilizado: `gemma2:2b` (baseline). Ver nota de qualidade na seção "Fase 1 — Keep".
+
+### Resultado consolidado
+
+| Cenário | Alerta disparou no Grafana | Apareceu no Keep | ai_rca presente | Qualidade ai_rca | Alerta resolveu após reversão |
+|---|:---:|:---:|:---:|:---:|:---:|
+| 1 — CrashLoopBackOff | ✅ | ✅ | ✅ | 2/5 | ✅ |
+| 2 — OOMKilled | ✅ | ✅ | ✅ | 3/5 | ✅ |
+| 3 — ImagePullBackOff | ✅ | ✅ | ✅ | 2/5 | ✅ |
+| 4 — Readiness Failing | ✅ | ✅ | ✅ | 2/5 | ✅ |
+
+**Conclusão de reprodutibilidade:** fluxo end-to-end validado. `make setup && make pf` + scripts de cenário funcionam do zero em VM limpa.
+
+### Outputs brutos do ai_rca (gemma2:2b)
+
+**Cenário 1 — CrashLoopBackOff**
+- Formato: JSON válido ✅
+- `root_cause`: "pod is experiencing a CrashLoopBackOff condition, indicating it might be stuck in an infinite loop" — sintoma correto, causa real (`exit 1`) não identificada
+- `immediate_action`: `kubectl logs <pod-name>` — correto mas genérico (sem o nome real do pod)
+- `prevention`: "Implement resource monitoring and proactive health checks" — genérica
+
+**Cenário 2 — OOMKilled**
+- Formato: markdown livre (não JSON) ❌
+- `root_cause`: container running out of memory, forcefully shut down — correto ✅
+- `immediate_action`: investigar recursos do container, checar logs — adequado
+- `prevention`: limitar memory allocation, evitar contention — prático ✅
+- Melhor output entre os 4 cenários — modelo correlacionou OOMKilled com limites de memória
+
+**Cenário 3 — ImagePullBackOff**
+- Formato: bloco `toolz` inválido + markdown ❌ (formato híbrido não parseável)
+- `root_cause`: "pod failed to download the image due to an issue with the registry details" — correto ✅
+- `immediate_action`: verificar image name/tag + `kubectl describe pod` — correto ✅
+- `prevention`: garantir informações corretas de imagem — adequada
+- Conteúdo útil apesar do formato ruim
+
+**Cenário 4 — Readiness Failing**
+- Formato: JSON válido ✅ + seção explicativa em markdown adicional
+- `root_cause`: "Readiness Probe is failing due to an unknown reason" — correto na superfície; path `/this-path-will-never-exist` não identificado (sem acesso à API k8s)
+- `immediate_action`: `kubectl logs` + diagnose root cause — correto mas genérico
+- `prevention`: "Ensure Readiness Probe configuration accurately reflects health checks" — genérica
+
+### Análise de formato (gemma2:2b)
+
+| Cenário | JSON limpo | Markdown extra | Formato inválido |
+|---|:---:|:---:|:---:|
+| CrashLoopBackOff | ✅ | ❌ | ❌ |
+| OOMKilled | ❌ | ✅ | ❌ |
+| ImagePullBackOff | ❌ | ✅ | ✅ (`toolz`) |
+| Readiness Failing | ✅ | ✅ | ❌ |
+
+**Inconsistência de formato é a principal limitação operacional do gemma2:2b.** Em 3 de 4 cenários o output não é JSON puro — quebraria um parser downstream sem tratamento de erro. Modelos maiores da matriz (phi3.5:3.8b, mistral:7b) têm maior aderência a instruções de formato e devem produzir JSON consistente.
+
+> ⚠️ Os scores de qualidade acima refletem o modelo baseline. Com o modelo recomendado pela Fase 0 (`mistral:7b-instruct-q4_K_M`, 4/5 de qualidade), espera-se: JSON consistente, RCAs mais específicos ao contexto, e ações imediatas com variáveis reais (nome do pod, namespace) — elevando a nota de "Qualidade do RCA" do Keep de 3 para potencialmente 4/5.
