@@ -1,0 +1,7 @@
+[
+  {
+    "model": "gemma2:2b",
+    "scenario": "CrashLoopBackOff",
+    "ai_rca": "{'response': \"## Analysis\\n\\n**Root Cause:** The pod experiencing a crash loop backoff likely indicates an issue within the k8sgpt container causing a persistent failure and inability to terminate. This could be due to resource contention, configuration errors, or network problems affecting the container's execution. \\n\\n**Immediate Action:** `kubectl logs -f <pod-name>`  \\nUse this command to examine the logs of the crashed pod for further insights into why it is encountering a loop back off error.\\n\\n**Prevention:** Ensure your deployment strategy and resource allocation within the aiops-lab namespace are appropriately configured. Monitor container metrics and logs to identify potential bottlenecks or issues causing frequent restarts. \\n\\n\\n**Note:** `aiops-lab` suggests this issue might be tied to a specific project or experiment, so it's important to investigate further within that context. \\n\"}"
+  }
+]

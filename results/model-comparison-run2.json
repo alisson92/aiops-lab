@@ -1,0 +1,52 @@
+[
+  {
+    "model": "gemma2:2b",
+    "scenario": "OOMKilled",
+    "ai_rca": null
+  },
+  {
+    "model": "gemma2:2b",
+    "scenario": "ImagePullBackOff",
+    "ai_rca": null
+  },
+  {
+    "model": "gemma2:2b",
+    "scenario": "Readiness",
+    "ai_rca": null
+  },
+  {
+    "model": "phi3.5:3.8b",
+    "scenario": "CrashLoopBackOff",
+    "ai_rca": null
+  },
+  {
+    "model": "phi3.5:3.8b",
+    "scenario": "OOMKilled",
+    "ai_rca": null
+  },
+  {
+    "model": "phi3.5:3.8b",
+    "scenario": "ImagePullBackOff",
+    "ai_rca": null
+  },
+  {
+    "model": "phi3.5:3.8b",
+    "scenario": "Readiness",
+    "ai_rca": null
+  },
+  {
+    "model": "qwen2.5:3b",
+    "scenario": "CrashLoopBackOff",
+    "ai_rca": null
+  },
+  {
+    "model": "qwen2.5:3b",
+    "scenario": "OOMKilled",
+    "ai_rca": null
+  },
+  {
+    "model": "qwen2.5:3b",
+    "scenario": "ImagePullBackOff",
+    "ai_rca": null
+  }
+]
