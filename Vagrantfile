@@ -24,15 +24,18 @@ Vagrant.configure("2") do |config|
 
   # Port forwarding: host Windows/Linux → VM Vagrant → kind container → NodePort/PF
   #
-  # Grafana e Prometheus usam NodePort (kind-config.yaml mapeia containerPort → hostPort
-  # dentro da VM). O Vagrant então encaminha essa hostPort do guest para o host.
+  # Portas do host com offset +10000 para não conflitar com o lab rodando no WSL2
+  # (que ocupa 3000, 3001, 8081 e 9091 diretamente no localhost do Windows).
   #
-  # Keep usa port-forward do kubectl (make pf) — exposto em 0.0.0.0 na VM,
-  # encaminhado aqui para o host.
-  config.vm.network "forwarded_port", guest: 3000, host: 3000  # Grafana   (NodePort 30000)
-  config.vm.network "forwarded_port", guest: 9091, host: 9091  # Prometheus (NodePort 30090)
-  config.vm.network "forwarded_port", guest: 3001, host: 3001  # Keep frontend (make pf)
-  config.vm.network "forwarded_port", guest: 8081, host: 8081  # Keep API      (make pf)
+  # Acesso após `vagrant ssh && make pf`:
+  #   Grafana      → http://localhost:13000
+  #   Keep         → http://localhost:13001
+  #   Keep API     → http://localhost:18081
+  #   Prometheus   → http://localhost:19091
+  config.vm.network "forwarded_port", guest: 3000, host: 13000  # Grafana    (NodePort 30000)
+  config.vm.network "forwarded_port", guest: 9091, host: 19091  # Prometheus (NodePort 30090)
+  config.vm.network "forwarded_port", guest: 3001, host: 13001  # Keep frontend (make pf)
+  config.vm.network "forwarded_port", guest: 8081, host: 18081  # Keep API      (make pf)
 
   # Provisionamento: instala todas as dependências e executa make setup
   config.vm.provision "shell", path: "scripts/bootstrap-vm.sh"
