@@ -3,14 +3,14 @@
 #
 # Aguarda todos os Deployments e StatefulSets do namespace ficarem prontos.
 # Os checks rodam em paralelo — o tempo de espera é o do workload mais lento,
-# não a soma de todos. Timeout global de 15 min (suficiente para primeiro pull).
+# não a soma de todos. Timeout global de 30 min (VM nova faz pull de ~6 GB).
 #
 # Uso: bash scripts/wait-ready.sh
 
 set -euo pipefail
 
 NAMESPACE="aiops-lab"
-GLOBAL_TIMEOUT=900  # 15 min — primeiro pull de imagens pode ser lento
+GLOBAL_TIMEOUT=1800  # 30 min — VM nova faz pull de ~6 GB de imagens; 15 min era insuficiente
 
 echo "Aguardando workloads ficarem prontos no namespace '${NAMESPACE}'..."
 echo "(timeout global: ${GLOBAL_TIMEOUT}s — checks em paralelo)"
