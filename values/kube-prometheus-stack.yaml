@@ -1633,6 +1633,10 @@ grafana:
               labels:
                 severity: warning
                 scenario: crashloopbackoff
+                # Os labels pod/container/namespace/reason vêm automaticamente da métrica
+                # kube_pod_container_status_waiting_reason do kube-state-metrics.
+                # Grafana propaga os labels da expressão Prometheus para o alerta —
+                # não é necessário defini-los manualmente aqui.
               isPaused: false
 
             # ── Cenário 2: OOMKilled ──────────────────────────────────────────
@@ -1658,6 +1662,7 @@ grafana:
               labels:
                 severity: warning
                 scenario: oomkilled
+                # Labels pod/container/namespace/reason propagados automaticamente da métrica.
               isPaused: false
 
             # ── Cenário 3: ImagePullBackOff ───────────────────────────────────
@@ -1683,6 +1688,7 @@ grafana:
               labels:
                 severity: warning
                 scenario: imagepullbackoff
+                # Labels pod/container/namespace/reason propagados automaticamente da métrica.
               isPaused: false
 
             # ── Cenário 4: Readiness probe falhando ───────────────────────────
@@ -1711,6 +1717,7 @@ grafana:
               labels:
                 severity: warning
                 scenario: readiness-failing
+                # Labels pod/namespace propagados automaticamente de kube_pod_status_ready.
               isPaused: false
 
   ## Passed to grafana subchart and used by servicemonitor below
