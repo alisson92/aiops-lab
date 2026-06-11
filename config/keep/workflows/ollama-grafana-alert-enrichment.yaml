@@ -70,12 +70,8 @@ workflow:
         with:
           typeCard: "MessageCard"
           themeColor: "D9534F"
-          message: "AIOps Lab — Kubernetes alert"
-          sections: >
-            [{"facts": [
-              {"name": "scenario",  "value": "{{ alert.labels.scenario }}"},
-              {"name": "pod",       "value": "{{ alert.labels.pod }}"},
-              {"name": "namespace", "value": "{{ alert.labels.namespace }}"},
-              {"name": "severity",  "value": "{{ alert.severity }}"},
-              {"name": "rca_raw",   "value": "{{ steps.get-rca.results }}"}
-            ]}]
+          # message → campo "text" no MessageCard → triggerBody()?['text'] no Power Automate
+          # sections → só campos seguros (strings simples, sem dict Python do Ollama)
+          # rca_raw sai do sections para evitar que o dict Python quebre o parse JSON do Keep
+          message: "{{ steps.get-rca.results }}"
+          sections: '[{"facts": [{"name": "scenario","value": "{{ alert.labels.scenario }}"},{"name": "pod","value": "{{ alert.labels.pod }}"},{"name": "namespace","value": "{{ alert.labels.namespace }}"},{"name": "severity","value": "{{ alert.severity }}"}]}]'
