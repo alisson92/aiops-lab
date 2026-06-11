@@ -1,57 +1,134 @@
 [
   {
     "model": "gemma2:2b",
+    "scenario": "CrashLoopBackOff",
+    "ai_rca": {
+      "response": {
+        "root_cause": "The Pod in the namespace 'aiops-lab' has entered a CrashLoopBackOff state.",
+        "immediate_action": "kubectl logs -f $(kubectl get pods -l name=aiops-lab-deployment | awk '{print $1}')",
+        "prevention": "Ensure proper resource allocation and utilization of resources by monitoring CPU and memory usage."
+      }
+    }
+  },
+  {
+    "model": "gemma2:2b",
     "scenario": "OOMKilled",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "The container may be using more memory than its allocated limit, leading to OOMKilled",
+        "immediate_action": "kubectl top pods -l name=aiops-lab --container-memory | awk '{print $2}' | sort | uniq",
+        "prevention": "Ensure that containers have sufficient memory limits set and avoid heavy resource utilization."
+      }
+    }
   },
   {
     "model": "gemma2:2b",
     "scenario": "ImagePullBackOff",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "The pod is failing to download the image.",
+        "immediate_action": "kubectl get pods -l app=aiops-lab",
+        "prevention": "Ensure images are correctly registered in a trusted registry with correct tag and name."
+      }
+    }
   },
   {
     "model": "gemma2:2b",
     "scenario": "Readiness",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "A Pod in the 'aiops-lab' namespace is running, but its readiness probe has been failing for more than 2 minutes.",
+        "immediate_action": "- Get the Pod details and identify the failure reason.\n  - If it is a network issue, check connectivity to services/databases related to the pod\n  - If it is an application issue, review logs from the service/application\n",
+        "prevention": "Ensure proper deployment monitoring and proactive maintenance of Kubernetes infrastructure for robust system stability."
+      }
+    }
   },
   {
     "model": "phi3.5:3.8b",
     "scenario": "CrashLoopBackOff",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "rootCause": "O pod está apresentando o estado CrashLoopBackOff, indicando que ele se reiniciou várias vezes sem sucesso.",
+        "immediateAction": "Rever os logs do container com `kubectl logs <pod-name> -n aiops-lab` para investigar as causas principais da falha e aplicar uma correção diretamente no pod ou nas configurações necessárias.",
+        "prevention": "Aplique melhores práticas de monitoramento com a integração contínua/implantação (CI/CD) do Kubernetes para detecção precoce dos problemas, garantindo teste automático e validação após os cenários de configurações."
+      }
+    }
   },
   {
     "model": "phi3.5:3.8b",
     "scenario": "OOMKilled",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "rootCause": "O container alcançou seu alvo máximo de uso total da memória, levando ao OOMKilled.",
+        "immediateAction": "Use `kubectl describe pod <POD_NAME>` to investigate resource allocation and adjust memory limits if necessary using the `-o json` flag with your kubectl commands for precision. For example: 'kubectl get po -n aiops-lab --selector app=yourAppName -o wide | jq .items[0].status.podIP' to obtain specific pod IP and execute targeted actions.",
+        "prevention": "Regularly monitor container resource usage, adjust memory limits according to application needs or consider implementing horizontal scaling for better load distribution."
+      }
+    }
   },
   {
     "model": "phi3.5:3.8b",
     "scenario": "ImagePullBackOff",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "O namespace aiops-lab não possui uma imagem válida ou as credenciais do registry para acessá-la.",
+        "immediate_action": "Use o comando `kubectl describe pod <pod-name>` em seguida execute 'docker pull myimage:tag' localmente e, se necessário, atualize os metadados de imagen dentro do namespace aiopsseab usando a função docker import.",
+        "prevention": "Crie uma procedimento revisão regular para verificar as imagens dos pods existentes no namespace."
+      }
+    }
   },
   {
     "model": "phi3.5:3.8b",
     "scenario": "Readiness",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "O pod tem estado em um status Running, mas sua leitura está falhando há mais de 2 minutos.",
+        "immediate_action": "Use o seguinte comando para reexecutar a operação: 'kubectl rollout restart deployment aiops-lab'",
+        "prevention": "Realizar regularmente revisões e verificações dos pods, além de monitoramento contínuo das leituras do estado."
+      }
+    }
   },
   {
     "model": "qwen2.5:3b",
     "scenario": "CrashLoopBackOff",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "Um pod chamado 'my-pod' no namespace 'aiops-lab' entrou em estado de CrashLoopBackOff, sugerimos inspecionar o log do container para identificar a causa.",
+        "immediate_action": "kubectl describe pod my-pod -n aiops-lab",
+        "prevention": "Para prevenir esse problema no futuro, garantir que as versões dos pods estejam atualizadas e reavaliando as políticas de tolerância ao falhanento."
+      }
+    }
   },
   {
     "model": "qwen2.5:3b",
     "scenario": "OOMKilled",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "Um container em execução no namespace aiops-lab foi encerrado por OOMKilled, sugerimos verificar e ajustar o limite de memória para evitar futuros problemas.",
+        "immediate_action": "kubectl describe pod <pod-name> -n aiops-lab | grep -i memory",
+        "prevention": "Ajuste o tamanho do limete de memória do contêiner ou otimize o uso da memória dos containers dentro do namespace aiops-lab para evitar a OOMKilled novamente."
+      }
+    }
   },
   {
     "model": "qwen2.5:3b",
     "scenario": "ImagePullBackOff",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "O pod está falhando ao tentar baixar a imagem docker://<nome_imagem>:<tag>",
+        "immediate_action": "kubectl describe pod <pod_name> -n aiops-lab",
+        "prevention": "Verifique o nome/tag da imagem e as credenciais do registry para garantir que estão corretas e acessíveis ao pod"
+      }
+    }
   },
   {
     "model": "qwen2.5:3b",
     "scenario": "Readiness",
-    "ai_rca": null
+    "ai_rca": {
+      "response": {
+        "root_cause": "O pod 'nginx-service' no namespace 'aiops-lab' não está passando o teste de disponibilidade e ainda não foi corrigido após mais de dois minutos.",
+        "immediate_action": "kubectl describe pod nginx-service -n aiops-lab",
+        "prevention": "Verifique as configurações do contêiner e das configurações do testador de conectividade para o pod 'nginx-service'. Certifique-se que a porta está configurada corretamente e que o serviço é realmente ativo."
+      }
+    }
   }
 ]
