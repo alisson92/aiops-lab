@@ -9,6 +9,25 @@
 set -euo pipefail
 trap 'echo "[ERRO] Script falhou na linha $LINENO" >&2' ERR
 
+# Carregar .env se existir — nunca commitar o .env (ver .gitignore)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ -z "$key" || "$key" == "$line" ]] && continue
+    if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    export "$key=$value"
+  done < "${PROJECT_ROOT}/.env"
+fi
+
 MODEL="${1:-}"
 NAMESPACE="aiops-lab"
 KEEP_API="http://localhost:8081"
@@ -31,7 +50,7 @@ sed -i "s|Ollama local (.*)\.|Ollama local (${MODEL}).|g" "$WORKFLOW_FILE"
 # 2. Aplica no Keep via API
 echo "Atualizando workflow no Keep..."
 RESULT=$(curl -s -X PUT "${KEEP_API}/workflows/${WORKFLOW_ID}" \
-  -H "X-API-KEY: keepappkey" \
+  -H "X-API-KEY: ${KEEP_API_KEY:-keepappkey}" \
   -H "Content-Type: application/yaml" \
   --data-binary @"$WORKFLOW_FILE")
 REVISION=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('revision','?'))" 2>/dev/null)

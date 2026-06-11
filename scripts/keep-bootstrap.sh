@@ -10,11 +10,31 @@
 set -euo pipefail
 trap 'echo "[ERRO] Falha na linha $LINENO" >&2' ERR
 
+# Carregar .env se existir — nunca commitar o .env (ver .gitignore)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  # source quebra com valores contendo & (ex: URLs de webhook) — parsear linha a linha
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue   # pular comentários
+    [[ -z "${line// }" ]] && continue              # pular linhas em branco
+    key="${line%%=*}"                              # tudo antes do primeiro =
+    value="${line#*=}"                             # tudo após o primeiro =
+    [[ -z "$key" || "$key" == "$line" ]] && continue
+    if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+      value="${value:1:${#value}-2}"               # remover aspas duplas
+    elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+      value="${value:1:${#value}-2}"               # remover aspas simples
+    fi
+    export "$key=$value"
+  done < "${PROJECT_ROOT}/.env"
+fi
+
 NAMESPACE="aiops-lab"
 KEEP_SVC="keep-backend"
 LOCAL_PORT="18081"  # porta local temporária (evita conflito com pf existente)
 KEEP_API="http://localhost:${LOCAL_PORT}"
-API_KEY="keepappkey"
+API_KEY="${KEEP_API_KEY:-keepappkey}"
 WORKFLOW_FILE="config/keep/workflows/ollama-grafana-alert-enrichment.yaml"
 TIMEOUT=120         # tempo de espera para o healthcheck responder após o pod estar Ready
 
@@ -144,6 +164,65 @@ else:
   echo "Provider Kubernetes instalado."
 }
 
+# ─── provider Teams ──────────────────────────────────────────────────────────
+
+install_teams_provider() {
+  # URL do webhook passada como variável de ambiente — nunca hardcodar nem commitar.
+  # Uso: TEAMS_WEBHOOK_URL='https://...' ./scripts/keep-bootstrap.sh
+  if [[ -z "${TEAMS_WEBHOOK_URL:-}" ]]; then
+    echo "ℹ️  TEAMS_WEBHOOK_URL não definida — pulando provider Teams."
+    echo "   Para ativar: TEAMS_WEBHOOK_URL='https://...' ./scripts/keep-bootstrap.sh"
+    return
+  fi
+
+  local state
+  state=$(curl -sf "${KEEP_API}/providers/export" \
+    -H "X-API-KEY: ${API_KEY}" | \
+    python3 -c "
+import sys, json
+providers = json.load(sys.stdin)
+if isinstance(providers, dict):
+    providers = providers.get('providers', [])
+teams = next((p for p in providers if p.get('type') == 'teams'), None)
+if not teams:
+    print('absent')
+elif teams.get('installed'):
+    print('installed')
+else:
+    print('stale:' + (teams.get('id') or ''))
+" 2>/dev/null || echo "absent")
+
+  if [[ "$state" == "installed" ]]; then
+    echo "Provider Teams já instalado."
+    return
+  fi
+
+  if [[ "$state" == stale:* ]]; then
+    local stale_id="${state#stale:}"
+    echo "Provider Teams em estado inconsistente. Removendo ID '${stale_id}'..."
+    curl -sf -X DELETE "${KEEP_API}/providers/teams/${stale_id}" \
+      -H "X-API-KEY: ${API_KEY}" >/dev/null || true
+  fi
+
+  echo "Instalando provider Teams..."
+  # python3 serializa o JSON com segurança — a URL pode conter caracteres especiais.
+  local payload
+  payload=$(python3 -c "
+import json, sys
+print(json.dumps({
+    'provider_id':   'teams-webhook',
+    'provider_type': 'teams',
+    'provider_name': 'teams-webhook',
+    'webhook_url':   sys.argv[1]
+}))" "${TEAMS_WEBHOOK_URL}")
+
+  curl -sf -X POST "${KEEP_API}/providers/install" \
+    -H "X-API-KEY: ${API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "${payload}" >/dev/null
+  echo "Provider Teams instalado."
+}
+
 # ─── workflow ─────────────────────────────────────────────────────────────────
 
 import_workflow() {
@@ -185,6 +264,7 @@ sleep 2  # aguarda o port-forward estabilizar
 wait_for_keep
 install_ollama_provider
 install_kubernetes_provider
+install_teams_provider
 import_workflow
 
 echo ""

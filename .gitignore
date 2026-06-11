@@ -1,4 +1,5 @@
 # Valores sensíveis — nunca commitar
+.env
 env/*.secret.yaml
 env/*.local.override.yaml
 *.secret

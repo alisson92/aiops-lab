@@ -62,3 +62,26 @@ workflow:
               value: "{{ steps.get-pod-events.results }}"
             - key: affected_pod
               value: "{{ alert.labels.pod }}"
+
+    - name: notify-teams
+      # Envia o RCA para o canal do Teams após o enriquecimento.
+      # Requer provider 'teams-webhook' registrado no Keep via keep-bootstrap.sh.
+      # Se steps.get-rca.results.root_cause falhar: usar {{ steps.get-rca.results }} como fallback.
+      provider:
+        type: teams
+        config: "{{ providers.teams-webhook }}"
+        with:
+          typeCard: "MessageCard"
+          themeColor: "D9534F"
+          message: >
+            🚨 **AIOps Lab — {{ alert.name }}**
+
+            **Pod:** {{ alert.labels.pod }}
+            | **Namespace:** {{ alert.labels.namespace }}
+            | **Severity:** {{ alert.severity }}
+
+            **Root Cause:** {{ steps.get-rca.results.root_cause }}
+
+            **Immediate Action:** {{ steps.get-rca.results.immediate_action }}
+
+            **Prevention:** {{ steps.get-rca.results.prevention }}

@@ -6,6 +6,25 @@
 
 set -euo pipefail
 
+# Carregar .env se existir — nunca commitar o .env (ver .gitignore)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ -z "$key" || "$key" == "$line" ]] && continue
+    if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    export "$key=$value"
+  done < "${PROJECT_ROOT}/.env"
+fi
+
 KEEP_API="http://localhost:8081"
 OLLAMA_API="http://localhost:11436"
 RESULTS_FILE="${2:-results/model-comparison-$(date +%Y%m%d-%H%M%S).json}"
@@ -28,7 +47,7 @@ echo "[]" > "$RESULTS_FILE"
 
 check_keep() {
   local response
-  response=$(curl -s --max-time 10 -H "X-API-KEY: keepappkey" "${KEEP_API}/healthcheck" 2>/dev/null || true)
+  response=$(curl -s --max-time 10 -H "X-API-KEY: ${KEEP_API_KEY:-keepappkey}" "${KEEP_API}/healthcheck" 2>/dev/null || true)
   if [[ -z "$response" ]]; then
     echo "⚠️  Keep API não responde em ${KEEP_API}. Verifique o port-forward." >&2
     exit 1
@@ -46,7 +65,7 @@ switch_model() {
   sed -i "s|Ollama local (.*)\.|Ollama local (${model}).|g" "$WORKFLOW_FILE"
 
   curl -s -X PUT "${KEEP_API}/workflows/${WORKFLOW_ID}" \
-    -H "X-API-KEY: keepappkey" \
+    -H "X-API-KEY: ${KEEP_API_KEY:-keepappkey}" \
     -H "Content-Type: application/yaml" \
     --data-binary @"$WORKFLOW_FILE" > /dev/null
 
@@ -66,7 +85,7 @@ get_rca() {
   tmpfile=$(mktemp)
 
   # Captura a resposta em arquivo para evitar problemas de quoting com conteúdo JSON
-  curl -s --max-time 15 -H "X-API-KEY: keepappkey" "${KEEP_API}/alerts?limit=100" > "$tmpfile" 2>/dev/null || true
+  curl -s --max-time 15 -H "X-API-KEY: ${KEEP_API_KEY:-keepappkey}" "${KEEP_API}/alerts?limit=100" > "$tmpfile" 2>/dev/null || true
 
   # Passa valores via env para evitar expansão indevida de $ dentro do heredoc Python
   KEYWORD="$keyword" SINCE="$since" TMPFILE="$tmpfile" python3 << 'PYEOF' 2>/dev/null
@@ -172,7 +191,7 @@ restore_model() {
   sed -i "s|model: \".*\"|model: \"${model}\"|g" "$WORKFLOW_FILE"
   sed -i "s|Ollama local (.*)\.|Ollama local (${model}).|g" "$WORKFLOW_FILE"
   curl -s -X PUT "${KEEP_API}/workflows/${WORKFLOW_ID}" \
-    -H "X-API-KEY: keepappkey" \
+    -H "X-API-KEY: ${KEEP_API_KEY:-keepappkey}" \
     -H "Content-Type: application/yaml" \
     --data-binary @"$WORKFLOW_FILE" > /dev/null
   echo "  Restaurado ✓"
