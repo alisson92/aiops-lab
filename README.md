@@ -138,7 +138,7 @@ make pf           # sobe todos os port-forwards e imprime as URLs
 | Grafana | `http://<IP>:3000` | NodePort · admin / admin |
 | Prometheus | `http://<IP>:9091` | NodePort |
 
-> Resultado esperado: cluster com Prometheus → Grafana → Keep → Ollama (gemma2:2b) operacionais.
+> Resultado esperado: cluster com Prometheus → Grafana → Keep → Ollama (`phi3.5:3.8b` pré-carregado) operacionais.
 > K8sGPT analisando o namespace `aiops-lab` automaticamente a cada ciclo.
 
 ```bash
@@ -343,7 +343,7 @@ Consulte a tabela de requisitos de hardware no início deste README e execute `m
 
 **Sistemas operacionais suportados:** Linux (Debian/Ubuntu/WSL2) · macOS · Windows via WSL2
 
-> O `make setup` cuida de puxar o modelo `gemma2:2b` automaticamente no primeiro boot do Ollama. Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
+> O `make setup` pré-carrega o modelo `phi3.5:3.8b` automaticamente no boot do Ollama (`OLLAMA_KEEP_ALIVE=-1` mantém o modelo em memória). Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
 
 ---
 
