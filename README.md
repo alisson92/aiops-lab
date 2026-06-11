@@ -153,6 +153,33 @@ docker stop aiops-lab-control-plane
 make teardown
 ```
 
+### Atualizar charts
+
+Todas as ferramentas usam charts upstream oficiais — o único artefato local são os arquivos em `values/`. O fluxo de atualização é:
+
+```bash
+# 1. Verificar se há novas versões disponíveis
+make update-check
+
+# 2. Para cada chart com nova versão:
+#    a) Leia o changelog do projeto upstream
+#    b) Compare o schema de values — chaves podem ser renomeadas ou removidas
+helm show values keephq/keep --version <nova> > /tmp/new-values.yaml
+diff /tmp/new-values.yaml values/keep-lab.yaml
+
+#    c) Ajuste values/<release>.yaml se necessário
+#    d) Atualize a versão em helmfile.yaml
+
+# 3. Faça um preview das mudanças no cluster antes de aplicar
+#    (requer: helm plugin install https://github.com/databus23/helm-diff)
+make diff
+
+# 4. Aplique o release alvo (ou todos de uma vez com helmfile -e local sync)
+helmfile -e local -l name=keep sync
+```
+
+> ⚠️ O passo de comparação de schema (2b) é o mais crítico: o Helm aceita silenciosamente chaves desconhecidas, então uma chave renomeada no chart não gera erro — simplesmente é ignorada e a configuração é perdida.
+
 ---
 
 ## 1. Visão geral
@@ -364,6 +391,7 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 | [`results/demo-roteiro.md`](results/demo-roteiro.md) | Roteiro de demonstração ao vivo (comandos + falas) |
 | [`results/briefing-apresentacao-2026-06-11.md`](results/briefing-apresentacao-2026-06-11.md) | Briefing executivo para apresentação ao time técnico |
 | [`results/model-comparison-run2.json`](results/model-comparison-run2.json) | Dados brutos do comparativo (3 modelos × 4 cenários, ai_rca válidos) |
+| [`scripts/check-updates.sh`](scripts/check-updates.sh) | Compara versões pinadas no helmfile com as últimas disponíveis upstream |
 
 ---
 

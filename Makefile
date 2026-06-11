@@ -8,7 +8,7 @@ ENV          := local
 
 # ─── targets principais ───────────────────────────────────────────────────────
 
-.PHONY: help check setup cluster-up deploy wait-ready bootstrap pf teardown
+.PHONY: help check setup cluster-up deploy wait-ready bootstrap pf teardown update-check diff
 
 help: ## Mostra esta ajuda
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) \
@@ -43,3 +43,16 @@ teardown: ## Destroi o cluster e todos os dados (pede confirmação)
 	  && [ "$$c" = "y" ] \
 	  && kind delete cluster --name $(CLUSTER_NAME) \
 	  || echo "Cancelado."
+
+# ─── manutenção / upgrades ────────────────────────────────────────────────────
+
+update-check: ## Compara versões pinadas no helmfile com as últimas disponíveis upstream
+	bash scripts/check-updates.sh
+
+diff: ## Preview das mudanças antes de aplicar (requer: helm plugin install helm-diff)
+	@helm plugin list 2>/dev/null | grep -q "diff" || { \
+	  echo "⚠️  Plugin helm-diff não encontrado."; \
+	  echo "   Instale com: helm plugin install https://github.com/databus23/helm-diff"; \
+	  exit 1; \
+	}
+	helmfile -e $(ENV) diff
