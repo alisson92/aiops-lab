@@ -13,7 +13,6 @@ workflow:
       # get_logs foi removido: KubernetesProvider v0.1.96 não suporta previous=True,
       # então logs ficam vazios em CrashLoop/OOMKilled; e o step falha com 404
       # quando o pod é deletado após rollout undo, quebrando o workflow inteiro.
-      # __get_events(api_client, namespace, pod_name=None, sort_by=None)
       provider:
         config: "{{ providers.kubernetes-local }}"
         type: kubernetes
@@ -28,26 +27,24 @@ workflow:
         type: ollama
         with:
           prompt: >
-            You are a Kubernetes SRE. Analyze the alert and pod context below
-            and respond ONLY with a JSON object — no markdown, no explanation.
+            You are a Kubernetes SRE. Analyze the alert and pod events below.
 
-            Alert name: {{ alert.name }}
-            Description: {{ alert.description }}
-            Severity: {{ alert.severity }}
+            Respond with ONLY this JSON object — no other text, no markdown, no explanation outside the JSON:
+            {"root_cause": "one sentence", "immediate_action": "kubectl command", "prevention": "one sentence"}
+
+            The keys MUST be exactly: root_cause, immediate_action, prevention.
+            Use the actual pod name and namespace in immediate_action.
+
             Scenario: {{ alert.labels.scenario }}
             Namespace: {{ alert.labels.namespace }}
             Pod: {{ alert.labels.pod }}
+            Severity: {{ alert.severity }}
 
             Pod events:
             {{ steps.get-pod-events.results }}
-
-            Required JSON fields:
-            - root_cause: one sentence explaining the most likely cause based on the context above
-            - immediate_action: exact kubectl command to investigate or remediate
-            - prevention: one sentence on how to prevent recurrence
           model: "phi3.5:3.8b"
-          max_tokens: 400
-          # Força JSON puro no nível da API do Ollama.
+          # 200 tokens são suficientes para o JSON de 3 campos — menos espaço = menos hallucination.
+          max_tokens: 200
           structured_output_format: "json"
 
   actions:
@@ -64,24 +61,21 @@ workflow:
               value: "{{ alert.labels.pod }}"
 
     - name: notify-teams
-      # Envia o RCA para o canal do Teams após o enriquecimento.
-      # Requer provider 'teams-webhook' registrado no Keep via keep-bootstrap.sh.
-      # Se steps.get-rca.results.root_cause falhar: usar {{ steps.get-rca.results }} como fallback.
+      # Envia payload estruturado para o Power Automate formatar o Adaptive Card.
+      # Cada fact é um campo independente — PA parseia por name, não por string combinada.
+      # Keep não suporta acesso aninhado: steps.get-rca.results vai como string em rca_raw.
       provider:
         type: teams
         config: "{{ providers.teams-webhook }}"
         with:
           typeCard: "MessageCard"
           themeColor: "D9534F"
-          message: >
-            🚨 **AIOps Lab — {{ alert.name }}**
-
-            **Pod:** {{ alert.labels.pod }}
-            | **Namespace:** {{ alert.labels.namespace }}
-            | **Severity:** {{ alert.severity }}
-
-            **Root Cause:** {{ steps.get-rca.results.root_cause }}
-
-            **Immediate Action:** {{ steps.get-rca.results.immediate_action }}
-
-            **Prevention:** {{ steps.get-rca.results.prevention }}
+          message: "AIOps Lab — Kubernetes alert"
+          sections: >
+            [{"facts": [
+              {"name": "scenario",  "value": "{{ alert.labels.scenario }}"},
+              {"name": "pod",       "value": "{{ alert.labels.pod }}"},
+              {"name": "namespace", "value": "{{ alert.labels.namespace }}"},
+              {"name": "severity",  "value": "{{ alert.severity }}"},
+              {"name": "rca_raw",   "value": "{{ steps.get-rca.results }}"}
+            ]}]
