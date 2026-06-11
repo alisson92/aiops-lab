@@ -149,7 +149,7 @@ Etapa realizada após o bake-off para garantir que os dados do comparativo de mo
 
 ### Modelo adotado no workflow: `phi3.5:3.8b`
 
-Melhor relação latência (36s) × qualidade (3/5) × estabilidade para hardware disponível localmente. Configuração persistida em `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `charts/ollama/values.yaml`.
+Melhor relação latência (36s) × qualidade (3/5) × estabilidade para hardware disponível localmente. Configuração persistida em `config/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `values/ollama.yaml`.
 
 ### Comparativo completo de modelos ✅ (3 modelos × 4 cenários)
 
@@ -176,7 +176,7 @@ Ferramentas verificadas automaticamente: docker, kind, kubectl, helm, helmfile, 
 Requisitos mínimos documentados com base em medição real do cluster.
 
 **Fix de acessibilidade do Keep frontend em ambiente VM/Hyper-V:**
-Next.js 15 usa a env var `HOSTNAME` para bind; o Kubernetes injeta o nome do pod (que resolve para o IP do pod). O `kubectl port-forward` conecta em `127.0.0.1` dentro do pod netns → recusado. Solução: `HOSTNAME=0.0.0.0` em `charts/keep/values-lab.yaml` force-bind no `0.0.0.0`.
+Next.js 15 usa a env var `HOSTNAME` para bind; o Kubernetes injeta o nome do pod (que resolve para o IP do pod). O `kubectl port-forward` conecta em `127.0.0.1` dentro do pod netns → recusado. Solução: `HOSTNAME=0.0.0.0` em `values/keep-lab.yaml` force-bind no `0.0.0.0`.
 
 ---
 

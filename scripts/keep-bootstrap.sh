@@ -15,7 +15,7 @@ KEEP_SVC="keep-backend"
 LOCAL_PORT="18081"  # porta local temporária (evita conflito com pf existente)
 KEEP_API="http://localhost:${LOCAL_PORT}"
 API_KEY="keepappkey"
-WORKFLOW_FILE="charts/keep/workflows/ollama-grafana-alert-enrichment.yaml"
+WORKFLOW_FILE="config/keep/workflows/ollama-grafana-alert-enrichment.yaml"
 TIMEOUT=120         # tempo de espera para o healthcheck responder após o pod estar Ready
 
 # ─── port-forward temporário ─────────────────────────────────────────────────

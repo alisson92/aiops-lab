@@ -170,7 +170,7 @@ Dois problemas de infraestrutura foram identificados durante os testes e corrigi
 
 ### Modelo adotado no lab: `phi3.5:3.8b`
 
-Melhor relação latência (36s) × qualidade (3/5) × estabilidade para o hardware disponível localmente. Configuração final persistida em `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `charts/ollama/values.yaml`.
+Melhor relação latência (36s) × qualidade (3/5) × estabilidade para o hardware disponível localmente. Configuração final persistida em `config/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `values/ollama.yaml`.
 
 ---
 
@@ -247,9 +247,9 @@ Estruturalmente inviável em ambiente CPU-only com modelos open-source disponív
 | Evidências por cenário e scoring | `results/scoring-matrix.md` |
 | Comparativo completo de modelos (dados brutos) | `results/model-comparison-run2.json` |
 | Briefing para apresentação ao time | `results/briefing-apresentacao-2026-06-11.md` |
-| Values do Keep (lab) | `charts/keep/values-lab.yaml` |
-| Values do Ollama | `charts/ollama/values.yaml` |
-| Values do K8sGPT | `charts/k8sgpt/values.yaml` |
-| Workflow de AI enrichment | `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` |
+| Values do Keep (lab) | `values/keep-lab.yaml` |
+| Values do Ollama | `values/ollama.yaml` |
+| Values do K8sGPT | `values/k8sgpt.yaml` |
+| Workflow de AI enrichment | `config/keep/workflows/ollama-grafana-alert-enrichment.yaml` |
 | Scripts de injeção de falha | `scenarios/01-crashloopbackoff.sh` · `02-oomkilled.sh` · `03-imagepullbackoff.sh` · `04-readiness-failing.sh` |
 | Script de comparação de modelos | `scripts/run-model-comparison.sh` |

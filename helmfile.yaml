@@ -41,7 +41,7 @@ releases:
     chart: prometheus-community/kube-prometheus-stack
     version: "86.1.0"   # app: v0.91.0
     values:
-      - charts/kube-prometheus-stack/values.yaml
+      - values/kube-prometheus-stack.yaml
 
   # ─────────────────────────────────────────────────────────────
   # Camada 3 — inferência LLM compartilhada (CPU-only, offline)
@@ -51,7 +51,7 @@ releases:
     chart: ollama-helm/ollama
     version: "1.57.0"   # app: 0.24.0
     values:
-      - charts/ollama/values.yaml
+      - values/ollama.yaml
     needs:
       - kube-prometheus-stack
 
@@ -74,7 +74,7 @@ releases:
     chart: keephq/keep
     version: "0.1.96"   # app: 0.52.1
     values:
-      - charts/keep/values-lab.yaml
+      - values/keep-lab.yaml
     needs:
       - kube-prometheus-stack
 
@@ -85,7 +85,7 @@ releases:
     chart: k8sgpt/k8sgpt-operator
     version: "0.2.27"   # app: 0.2.27
     values:
-      - charts/k8sgpt/values.yaml
+      - values/k8sgpt.yaml
     needs:
       - ollama
 
@@ -106,6 +106,6 @@ releases:
     chart: robusta/holmes
     version: "0.31.1"
     values:
-      - charts/holmesgpt/values.yaml
+      - values/holmesgpt.yaml
     needs:
       - ollama

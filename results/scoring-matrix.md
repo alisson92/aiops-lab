@@ -381,7 +381,7 @@ structured_output_format: "json"   # JSON puro — elimina markdown e texto extr
 ```
 
 ```yaml
-# charts/ollama/values.yaml
+# values/ollama.yaml
 extraEnv:
   - name: OLLAMA_KEEP_ALIVE
     value: "-1"              # modelo nunca descarregado — elimina cold start

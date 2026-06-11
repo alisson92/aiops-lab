@@ -93,28 +93,34 @@ Nunca pular ou inverter camadas. Nunca instalar um candidato AIOps sem as camada
 
 ```
 aiops-lab/
-├── charts/
-│   ├── kube-prometheus-stack/
-│   │   └── values.yaml
-│   ├── ollama/
-│   │   └── values.yaml
-│   ├── keep/
-│   │   └── values.yaml
-│   ├── k8sgpt/
-│   │   └── values.yaml
-│   ├── holmesgpt/
-│   │   └── values.yaml
-│   └── workload-vitima/
-│       └── values.yaml         # ou manifests/ se não usar chart
-├── helmfile.yaml               # gerenciamento centralizado de releases e valores compartilhados
+├── charts/                     # charts Helm locais (você é o autor)
+│   ├── k8sgpt-config/          # CR K8sGPT — wrapper para o CRD do operator
+│   │   ├── Chart.yaml
+│   │   └── templates/
+│   └── workload-vitima/        # Deployment de teste para injeção de falhas
+│       ├── Chart.yaml
+│       └── templates/
+├── values/                     # overrides de charts upstream (um arquivo por release)
+│   ├── kube-prometheus-stack.yaml
+│   ├── ollama.yaml
+│   ├── keep-lab.yaml
+│   ├── k8sgpt.yaml
+│   └── holmesgpt.yaml
+├── config/                     # configurações de runtime (não são templates Helm)
+│   └── keep/
+│       └── workflows/
+│           └── ollama-grafana-alert-enrichment.yaml
+├── env/                        # valores por ambiente (local.yaml / prod.yaml)
+├── helmfile.yaml               # orquestra todos os releases
 ├── scenarios/                  # scripts de injeção de falha por cenário
-├── results/                    # matriz de pontuação e evidências dos testes
+├── scripts/                    # automações operacionais (bootstrap, port-forward, etc.)
+├── results/                    # evidências do bake-off (ADR, scoring, demos)
 ├── README.md
 └── CLAUDE.md
 ```
 
 **Regra:** cada componente usa o chart **oficial upstream** (`helm repo add` + `helm install`).
-Nunca modificar templates do chart — apenas sobrescrever via `values.yaml`.
+Nunca modificar templates do chart — apenas sobrescrever via `values/`.
 
 ---
 

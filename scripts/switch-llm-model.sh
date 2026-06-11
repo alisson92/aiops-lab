@@ -14,7 +14,7 @@ NAMESPACE="aiops-lab"
 KEEP_API="http://localhost:8081"
 OLLAMA_API="http://localhost:11436"
 WORKFLOW_ID="60cbcfc1-2605-426b-9512-d5d4d338aebe"
-WORKFLOW_FILE="charts/keep/workflows/ollama-grafana-alert-enrichment.yaml"
+WORKFLOW_FILE="config/keep/workflows/ollama-grafana-alert-enrichment.yaml"
 
 if [[ -z "$MODEL" ]]; then
   echo "Uso: $0 <modelo>"

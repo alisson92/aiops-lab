@@ -10,7 +10,7 @@ KEEP_API="http://localhost:8081"
 OLLAMA_API="http://localhost:11436"
 RESULTS_FILE="${2:-results/model-comparison-$(date +%Y%m%d-%H%M%S).json}"
 WORKFLOW_ID="60cbcfc1-2605-426b-9512-d5d4d338aebe"
-WORKFLOW_FILE="charts/keep/workflows/ollama-grafana-alert-enrichment.yaml"
+WORKFLOW_FILE="config/keep/workflows/ollama-grafana-alert-enrichment.yaml"
 FINAL_MODEL="phi3.5:3.8b"  # modelo restaurado ao final
 
 MODELS=("gemma2:2b" "phi3.5:3.8b" "qwen2.5:3b")

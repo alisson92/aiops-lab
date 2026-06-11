@@ -29,7 +29,7 @@ make pf
 # Saída esperada: URLs de Keep frontend (:3001), Keep API (:8081), Grafana (:3000), Prometheus (:9091)
 
 # 3. Confirmar modelo ativo no workflow (deve ser phi3.5:3.8b)
-grep "model:" charts/keep/workflows/ollama-grafana-alert-enrichment.yaml
+grep "model:" config/keep/workflows/ollama-grafana-alert-enrichment.yaml
 
 # 4. Confirmar que o Ollama já tem o modelo carregado (KEEP_ALIVE=-1 garante isso)
 curl -s http://localhost:11436/api/tags | python3 -c "
