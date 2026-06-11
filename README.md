@@ -335,19 +335,7 @@ Para validar *ferramenta de AIOps* não é preciso o Camunda — é preciso **fa
 
 ---
 
-## 13. Pré-requisitos
-
-Consulte a tabela de requisitos de hardware no início deste README e execute `make check` para validação automática do ambiente.
-
-**Ferramentas obrigatórias:** `docker`, `kind`, `kubectl`, `helm`, `helmfile`, `make`, `python3`, `curl`, `pkill`, `git`, `k9s`
-
-**Sistemas operacionais suportados:** Linux (Debian/Ubuntu/WSL2) · macOS · Windows via WSL2
-
-> O `make setup` pré-carrega o modelo `phi3.5:3.8b` automaticamente no boot do Ollama (`OLLAMA_KEEP_ALIVE=-1` mantém o modelo em memória). Os demais modelos da Fase 0 podem ser baixados depois via `kubectl exec` no pod do Ollama.
-
----
-
-## 14. Status
+## 13. Status
 
 **Bake-off concluído. ADR redigida. Lab reprodutível validado em WSL2, Debian nativo e VM Hyper-V. Comparativo de modelos LLM completo (3 modelos × 4 cenários).**
 
