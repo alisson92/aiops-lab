@@ -1,0 +1,7 @@
+apiVersion: v2
+name: keep-rbac
+description: |
+  RBAC namespaced (Tier A) para o backend do Keep acessar a Kubernetes API
+  e buscar contexto de pods e eventos durante o workflow de enriquecimento de alertas.
+type: application
+version: 0.1.0

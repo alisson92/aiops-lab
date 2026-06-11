@@ -78,6 +78,15 @@ releases:
     needs:
       - kube-prometheus-stack
 
+  # RBAC namespaced (Tier A) para o backend do Keep acessar pods/log e events.
+  # Necessário para o step get-pod-context do workflow de enriquecimento de alertas.
+  - name: keep-rbac
+    namespace: "{{ .Values.namespace }}"
+    chart: charts/keep-rbac
+    version: "0.1.0"
+    needs:
+      - keep
+
   # 🔒 Tier B — instala CRDs e ClusterRoles cluster-scoped.
   # Para produção: requer aprovação explícita do cliente antes do deploy.
   - name: k8sgpt-operator

@@ -1,0 +1,20 @@
+# Role namespaced (Tier A) — nenhum recurso cluster-scoped.
+# Concede ao backend do Keep permissões mínimas para enriquecer alertas com contexto do pod:
+#   - pods/log: leitura de logs (get-pod-context step)
+#   - pods: leitura de status e condições
+#   - events: leitura de eventos do pod (OOMKilled, BackOff, etc.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keep-pod-reader
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: keep-rbac
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list"]

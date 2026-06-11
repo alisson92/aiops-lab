@@ -97,23 +97,75 @@ else:
   echo "Provider Ollama instalado."
 }
 
+# ─── provider Kubernetes ──────────────────────────────────────────────────────
+
+install_kubernetes_provider() {
+  # Usa in-cluster config automaticamente (sem kubeconfig explícito).
+  # Requer: chart keep-rbac deployado com Role + RoleBinding para o SA do backend.
+  # Checar por type='kubernetes' — Keep armazena name=None no export endpoint.
+  local state
+  state=$(curl -sf "${KEEP_API}/providers/export" \
+    -H "X-API-KEY: ${API_KEY}" | \
+    python3 -c "
+import sys, json
+providers = json.load(sys.stdin)
+if isinstance(providers, dict):
+    providers = providers.get('providers', [])
+k8s = next((p for p in providers if p.get('type') == 'kubernetes'), None)
+if not k8s:
+    print('absent')
+elif k8s.get('installed'):
+    print('installed')
+else:
+    print('stale:' + (k8s.get('id') or ''))
+" 2>/dev/null || echo "absent")
+
+  if [[ "$state" == "installed" ]]; then
+    echo "Provider Kubernetes já instalado."
+    return
+  fi
+
+  if [[ "$state" == stale:* ]]; then
+    local stale_id="${state#stale:}"
+    echo "Provider Kubernetes em estado inconsistente. Removendo ID '${stale_id}'..."
+    curl -sf -X DELETE "${KEEP_API}/providers/kubernetes/${stale_id}" \
+      -H "X-API-KEY: ${API_KEY}" >/dev/null || true
+  fi
+
+  echo "Instalando provider Kubernetes (in-cluster config)..."
+  curl -sf -X POST "${KEEP_API}/providers/install" \
+    -H "X-API-KEY: ${API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "provider_id":   "kubernetes-local",
+      "provider_type": "kubernetes",
+      "provider_name": "kubernetes-local"
+    }' >/dev/null
+  echo "Provider Kubernetes instalado."
+}
+
 # ─── workflow ─────────────────────────────────────────────────────────────────
 
 import_workflow() {
-  # Keep gera um UUID novo a cada import — checar pelo campo 'name' do workflow,
-  # que mapeia para o campo 'name:' do YAML (estável entre imports).
-  local exists
-  exists=$(curl -sf "${KEEP_API}/workflows" \
+  # Estratégia: delete-and-reimport sempre que executado.
+  # Garante que o conteúdo do YAML em disco é o que está ativo no Keep,
+  # independentemente de quantas vezes o workflow foi editado.
+  #
+  # Keep gera UUID novo a cada import — o 'name:' do YAML é a identidade estável.
+  local existing_id
+  existing_id=$(curl -sf "${KEEP_API}/workflows" \
     -H "X-API-KEY: ${API_KEY}" | \
     python3 -c "
 import sys, json
 workflows = json.load(sys.stdin)
-print(any(w.get('name') == 'Ollama Grafana Alert Enrichment' for w in workflows))
-" 2>/dev/null || echo "False")
+match = next((w for w in workflows if w.get('name') == 'Ollama Grafana Alert Enrichment'), None)
+print(match.get('id','') if match else '')
+" 2>/dev/null || echo "")
 
-  if [[ "$exists" == "True" ]]; then
-    echo "Workflow já importado."
-    return
+  if [[ -n "$existing_id" ]]; then
+    echo "Removendo workflow anterior (ID: ${existing_id})..."
+    curl -sf -X DELETE "${KEEP_API}/workflows/${existing_id}" \
+      -H "X-API-KEY: ${API_KEY}" >/dev/null || true
   fi
 
   echo "Importando workflow..."
@@ -132,6 +184,7 @@ trap stop_pf EXIT  # garante cleanup mesmo se o script falhar
 sleep 2  # aguarda o port-forward estabilizar
 wait_for_keep
 install_ollama_provider
+install_kubernetes_provider
 import_workflow
 
 echo ""

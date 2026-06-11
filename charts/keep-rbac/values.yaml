@@ -1,0 +1,7 @@
+# Namespace onde o Keep está instalado.
+namespace: aiops-lab
+
+# Nome do ServiceAccount do backend do Keep.
+# O chart keephq/keep (v0.1.96) cria um SA com o mesmo nome do release.
+# Verificar com: kubectl get sa -n aiops-lab
+keepBackendServiceAccount: keep
