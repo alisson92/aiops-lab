@@ -1,7 +1,7 @@
 # ADR-001 — Adoção de plataforma AIOps para operações Kubernetes
 
 **Status:** Proposto  
-**Data:** 2026-06-09  
+**Data:** 2026-06-09 (atualizado 2026-06-11)  
 **Autores:** Time de SRE  
 **Contexto:** Bake-off técnico — cluster Kind local (validação) / Amazon EKS (alvo de produção)
 
@@ -152,13 +152,13 @@ Dois problemas de infraestrutura foram identificados durante os testes e corrigi
 | `phi3:mini` | Latência | 176s de inferência — ultrapassa gate de 120s | Nenhum — latência é do modelo, não do cold start |
 | `llama3.2:3b` | Qualidade | Atribuiu OOMKilled a problema de scheduling (erro de raciocínio) | Nenhum — `format:json` melhora estrutura, não raciocínio |
 
-**Tier 2 — Viáveis no lab (validados com os controles de infra)**
+**Tier 2 — Viáveis no lab (validados com os controles de infra · dados de `results/model-comparison-run2.json`)**
 
-| Modelo | RAM | Latência | Qualidade RCA | JSON consistente |
-|---|---|---|:---:|:---:|
-| `gemma2:2b` | 1.6 GiB | ~14s | 3/5 | ✅ (com `format:json`) |
-| `phi3.5:3.8b` | 2.2 GiB | ~36s | 3/5 | ✅ (com `format:json`) |
-| `qwen2.5:3b` | 1.9 GiB | ~85s | 3/5 | ✅ (com `format:json`) |
+| Modelo | RAM | Latência | Qualidade RCA | JSON consistente | Observação |
+|---|---|---|:---:|:---:|---|
+| `gemma2:2b` | 1.6 GiB | ~14s | 3/5 | ✅ | Mais conciso; responde em inglês; conservador (não inventa contexto) |
+| `phi3.5:3.8b` | 2.2 GiB | ~36s | 3/5 | ✅ | Mais verboso; responde em português; usa camelCase nos campos (`rootCause`) — requer normalização |
+| `qwen2.5:3b` | 1.9 GiB | ~85s | 3/5 | ✅ | Responde em português; apresentou alucinação leve (inventou nomes de pods não presentes no payload) |
 
 **Tier 3 — Viável em produção, requer validação em EKS**
 
@@ -244,8 +244,12 @@ Estruturalmente inviável em ambiente CPU-only com modelos open-source disponív
 
 | Artefato | Localização |
 |---|---|
-| Evidências por cenário | `results/scoring-matrix.md` |
-| Values do Keep | `charts/keep/values-lab.yaml` |
+| Evidências por cenário e scoring | `results/scoring-matrix.md` |
+| Comparativo completo de modelos (dados brutos) | `results/model-comparison-run2.json` |
+| Briefing para apresentação ao time | `results/briefing-apresentacao-2026-06-11.md` |
+| Values do Keep (lab) | `charts/keep/values-lab.yaml` |
+| Values do Ollama | `charts/ollama/values.yaml` |
 | Values do K8sGPT | `charts/k8sgpt/values.yaml` |
-| Workflow de AI enrichment | Keep API — workflow `ollama-grafana-alert-enrichment` |
-| Scripts de injeção de falha | `scenarios/01-04-*.sh` |
+| Workflow de AI enrichment | `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` |
+| Scripts de injeção de falha | `scenarios/01-crashloopbackoff.sh` · `02-oomkilled.sh` · `03-imagepullbackoff.sh` · `04-readiness-failing.sh` |
+| Script de comparação de modelos | `scripts/run-model-comparison.sh` |

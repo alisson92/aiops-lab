@@ -20,38 +20,37 @@ A demo segue o ciclo real de um incidente:
 ## Checklist pré-demo (executar 10 min antes)
 
 ```bash
-# 1. Verificar cluster
+# 1. Verificar cluster e pods
 kubectl get nodes
-
-# 2. Verificar pods do namespace
 kubectl get pods -n aiops-lab
 
-# 3. Subir port-forwards (todos em background)
-kubectl port-forward svc/keep-backend    -n aiops-lab 8081:8080 &
-kubectl port-forward svc/keep-frontend   -n aiops-lab 3001:3000 &
-kubectl port-forward svc/kube-prometheus-stack-prometheus -n aiops-lab 9091:9090 &
-GRAFANA_POD=$(kubectl get pod -n aiops-lab -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
-kubectl port-forward pod/$GRAFANA_POD -n aiops-lab 3000:3000 &
+# 2. Subir todos os port-forwards de uma vez
+make pf
+# Saída esperada: URLs de Keep frontend (:3001), Keep API (:8081), Grafana (:3000), Prometheus (:9091)
 
-# 4. Verificar Ollama provider no Keep (reinstalar se necessário — id muda a cada reinício)
+# 3. Confirmar modelo ativo no workflow (deve ser phi3.5:3.8b)
+grep "model:" charts/keep/workflows/ollama-grafana-alert-enrichment.yaml
+
+# 4. Confirmar que o Ollama já tem o modelo carregado (KEEP_ALIVE=-1 garante isso)
+curl -s http://localhost:11436/api/tags | python3 -c "
+import json,sys; models=json.load(sys.stdin)['models']
+print([m['name'] for m in models])"
+
+# 5. Verificar Ollama provider no Keep
 curl -s http://localhost:8081/providers \
-  -H "X-API-KEY: keepappkey" | jq '.[] | select(.type=="ollama") | {id, installed}'
+  -H "X-API-KEY: keepappkey" | python3 -c "
+import json,sys; providers=json.load(sys.stdin)
+print([(p['type'],p.get('installed')) for p in providers if p['type']=='ollama'])"
 
-# Se installed=false, reinstalar:
-curl -s -X POST http://localhost:8081/providers/install \
-  -H "X-API-KEY: keepappkey" \
-  -H "Content-Type: application/json" \
-  -d '{"provider_type":"ollama","provider_name":"ollama-local","host":"http://ollama.aiops-lab.svc.cluster.local:11434"}'
+# 6. Verificar K8sGPT
+kubectl get k8sgpt k8sgpt-lab -n aiops-lab -o jsonpath='{.status.conditions[0]}' | python3 -m json.tool
 
-# 5. Verificar K8sGPT
-kubectl get k8sgpt k8sgpt-lab -n aiops-lab -o jsonpath='{.status.conditions[0]}' | jq
-
-# 6. Garantir workload-vítima saudável (sem falhas ativas)
+# 7. Garantir workload-vítima saudável (sem falhas ativas)
 kubectl get pods -n aiops-lab -l app=workload-vitima
 
-# 7. Abrir abas no browser antes de começar
-#    - Keep dashboard:  http://localhost:3001  (API key: keepappkey)
-#    - Grafana:         http://localhost:3000  (admin/admin)
+# 8. Abrir abas no browser antes de começar
+#    - Keep dashboard:   http://localhost:3001
+#    - Grafana:          http://localhost:3000  (admin/admin)
 #    - Grafana Alerting: http://localhost:3000/alerting/list
 ```
 
@@ -66,7 +65,7 @@ kubectl get pods -n aiops-lab -o wide
 ```
 
 **Fala:** "Este é o namespace `aiops-lab`. Temos o Prometheus coletando métricas,
-o Grafana avaliando regras de alerta, o Ollama rodando o modelo gemma2:2b em CPU puro
+o Grafana avaliando regras de alerta, o Ollama rodando o modelo `phi3.5:3.8b` em CPU puro
 — sem GPU, sem chamada de API externa — e o Keep como hub central de alertas."
 
 ### 1.2 Mostrar o fluxo no quadro

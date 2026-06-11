@@ -401,3 +401,65 @@ models:
 }
 ```
 JSON limpo, três campos estruturados, sem markdown, sem duplicação. Workflow estável sob uso contínuo.
+
+---
+
+## Comparativo completo de modelos — Keep workflow (2026-06-11)
+
+> 3 modelos Tier 2 × 4 cenários de falha. Dados brutos em `results/model-comparison-run2.json`.
+> Controles aplicados: `OLLAMA_KEEP_ALIVE=-1` · `structured_output_format: json`.
+> Metodologia: script automatizado `scripts/run-model-comparison.sh` — injeção → espera → captura → reversão.
+
+### Resultado por modelo e cenário
+
+| Modelo | CrashLoopBackOff | OOMKilled | ImagePullBackOff | Readiness |
+|---|:---:|:---:|:---:|:---:|
+| `gemma2:2b` | ✅ | ✅ | ✅ | ✅ |
+| `phi3.5:3.8b` | ✅ | ✅ | ✅ | ✅ |
+| `qwen2.5:3b` | ✅ | ✅ | ✅ | ✅ |
+
+Todos os 12 campos `ai_rca` preenchidos como objetos JSON válidos.
+
+### Amostras dos root_cause por modelo
+
+**gemma2:2b**
+| Cenário | root_cause (resumido) | Correto? |
+|---|---|:---:|
+| CrashLoopBackOff | "The Pod has entered a CrashLoopBackOff state." | ⚠️ Parcial — sintoma, não causa raiz |
+| OOMKilled | "The container may be using more memory than its allocated limit." | ✅ |
+| ImagePullBackOff | "The pod is failing to download the image." | ✅ |
+| Readiness | "readiness probe has been failing for more than 2 minutes." | ⚠️ Parcial — sem path |
+
+**phi3.5:3.8b** *(nota: usa camelCase nos campos: `rootCause`, `immediateAction`, `prevention`)*
+| Cenário | rootCause (resumido) | Correto? |
+|---|---|:---:|
+| CrashLoopBackOff | "O pod está apresentando o estado CrashLoopBackOff, indicando que ele se reiniciou várias vezes." | ⚠️ Parcial |
+| OOMKilled | "O container alcançou seu alvo máximo de uso total da memória, levando ao OOMKilled." | ✅ |
+| ImagePullBackOff | "O namespace aiops-lab não possui uma imagem válida ou as credenciais do registry para acessá-la." | ✅ |
+| Readiness | "O pod tem estado em um status Running, mas sua leitura está falhando há mais de 2 minutos." | ⚠️ Parcial |
+
+**qwen2.5:3b**
+| Cenário | root_cause (resumido) | Correto? |
+|---|---|:---:|
+| CrashLoopBackOff | "Um pod chamado 'my-pod' no namespace 'aiops-lab' entrou em estado de CrashLoopBackOff." | ⚠️ Parcial — inventa nome de pod |
+| OOMKilled | "Um container em execução no namespace aiops-lab foi encerrado por OOMKilled." | ✅ |
+| ImagePullBackOff | "O pod está falhando ao tentar baixar a imagem docker://\<nome_imagem\>:\<tag\>" | ✅ |
+| Readiness | "O pod 'nginx-service' no namespace 'aiops-lab' não está passando o teste de disponibilidade." | ⚠️ Parcial — inventa nome de pod |
+
+### Observações por modelo
+
+| Modelo | Idioma de resposta | Consistência de campos | Inventou nomes de pods? | Avaliação |
+|---|---|---|:---:|---|
+| `gemma2:2b` | Inglês | `root_cause` · `immediate_action` · `prevention` | ❌ | Conciso, correto no essencial, superficial |
+| `phi3.5:3.8b` | Português | `rootCause` · `immediateAction` · `prevention` (**camelCase** — requer normalização) | ❌ | Mais verboso, ações imediatas mais elaboradas |
+| `qwen2.5:3b` | Português | `root_cause` · `immediate_action` · `prevention` | ✅ (placeholder de nomes) | Cometeu alucinação leve: inventou nomes de pods (`my-pod`, `nginx-service`) não presentes no payload |
+
+### Conclusão do comparativo
+
+- **Nenhum modelo atingiu 4/5 de qualidade** nos 4 cenários — todos ficam em 3/5 com o payload Grafana como único contexto.
+- **qwen2.5:3b** apresentou alucinação leve (nomes de pods inventados), o que o desqualifica como modelo principal para ambiente de produção.
+- **phi3.5:3.8b** tem a limitação do camelCase nos campos (requereria normalização em parser downstream), mas a qualidade é equivalente ao gemma2:2b.
+- **gemma2:2b** é o mais conservador e consistente estruturalmente. Adequado como baseline.
+- **`mistral:7b` (Tier 3)** permanece como candidato preferencial para EKS — único que atingiu 4/5. A validação em node ≥ 12 GiB é o próximo passo antes de definir o modelo de produção.
+
+> **Raiz comum da limitação de qualidade (todos os modelos):** o LLM recebe apenas `name`, `description` e `severity` do payload Grafana. Sem `kubectl describe pod`, exit code, ou razão de término do container, o diagnóstico é necessariamente genérico. Extensão do workflow com step de provider `kubernetes` elevaria a qualidade independentemente do modelo.

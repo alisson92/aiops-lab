@@ -1,11 +1,11 @@
 # Progresso do Bake-off — aiops-lab
 
 > Fonte de verdade do andamento do projeto. Atualizar a cada etapa concluída.
-> Última atualização: 2026-06-09
+> Última atualização: 2026-06-11
 
 ---
 
-## Estado atual: Bake-off concluído · ADR redigida · Roteiro de demo criado · Lab reprodutível validado em WSL2 e Debian
+## Estado atual: Bake-off concluído · ADR redigida · Roteiro de demo criado · Lab reprodutível validado em WSL2, Debian e VM Hyper-V · Comparativo de modelos completo (3 modelos × 4 cenários)
 
 ---
 
@@ -134,14 +134,49 @@ HolmesGPT foi eliminado na Fase 1. Tríade inviável. Registrada como N/A no ADR
 
 ---
 
+## Pós-bake-off — Qualidade do ai_rca e seleção de modelo ✅ CONCLUÍDA (2026-06-10/11)
+
+Etapa realizada após o bake-off para garantir que os dados do comparativo de modelos sejam metodologicamente corretos.
+
+### Problemas identificados e resolvidos
+
+| Problema | Sintoma | Causa raiz | Solução | Commit |
+|---|---|---|---|---|
+| **Keep frontend inacessível** (VM Hyper-V) | `Connection refused` no port-forward | Next.js 15 faz bind no hostname do pod (IP do pod), não em 0.0.0.0 | `HOSTNAME=0.0.0.0` em `values-lab.yaml` | `b74f78a` |
+| **Cold start Ollama** | Primeiro alerta falha com 500 após inatividade | Ollama descarrega modelos após 5min (padrão) | `OLLAMA_KEEP_ALIVE=-1` + `run: [phi3.5:3.8b]` | `4c64e67` |
+| **Formato inconsistente de ai_rca** | JSON embrulhado em markdown, duplicação | Modelos ignoram instruções de formato no prompt | `structured_output_format: json` no provider Ollama | `4c64e67` |
+| **mistral:7b instável no lab** | Ollama 500 em todos os cenários | Requer 4.5 GiB RAM *livres*; cluster com 7+ dias de uptime tinha 3.9 GiB | Descartado para uso contínuo no lab; classificado como Tier 3 (EKS) | `cf47d36` |
+
+### Modelo adotado no workflow: `phi3.5:3.8b`
+
+Melhor relação latência (36s) × qualidade (3/5) × estabilidade para hardware disponível localmente. Configuração persistida em `charts/keep/workflows/ollama-grafana-alert-enrichment.yaml` e `charts/ollama/values.yaml`.
+
+### Comparativo completo de modelos ✅ (3 modelos × 4 cenários)
+
+Executado via `scripts/run-model-comparison.sh`. Resultados validados em `results/model-comparison-run2.json` (12 entradas, todos os campos `ai_rca` preenchidos como objetos JSON válidos).
+
+| Modelo | CrashLoopBackOff | OOMKilled | ImagePullBackOff | Readiness |
+|---|:---:|:---:|:---:|:---:|
+| `gemma2:2b` | ✅ | ✅ | ✅ | ✅ |
+| `phi3.5:3.8b` | ✅ | ✅ | ✅ | ✅ |
+| `qwen2.5:3b` | ✅ | ✅ | ✅ | ✅ |
+
+**Briefing para apresentação ao time:** `results/briefing-apresentacao-2026-06-11.md`
+
+---
+
 ## Reprodutibilidade ✅ CONCLUÍDA
 
-Fluxo `make check → make setup → make pf` validado em dois ambientes:
+Fluxo `make check → make setup → make pf` validado em três ambientes:
 - WSL2 (Ubuntu/Debian sobre Windows)
 - VM Debian nativa (4 vCPUs, 11 GB RAM, 16 GB disco)
+- VM Vagrant (Hyper-V · `generic/debian12` · 4 vCPUs / 8 GB RAM) — fluxo end-to-end Grafana→Keep→ai_rca validado
 
 Ferramentas verificadas automaticamente: docker, kind, kubectl, helm, helmfile, make, python3, curl, pkill, git, k9s.
 Requisitos mínimos documentados com base em medição real do cluster.
+
+**Fix de acessibilidade do Keep frontend em ambiente VM/Hyper-V:**
+Next.js 15 usa a env var `HOSTNAME` para bind; o Kubernetes injeta o nome do pod (que resolve para o IP do pod). O `kubectl port-forward` conecta em `127.0.0.1` dentro do pod netns → recusado. Solução: `HOSTNAME=0.0.0.0` em `charts/keep/values-lab.yaml` force-bind no `0.0.0.0`.
 
 ---
 
@@ -158,3 +193,10 @@ Requisitos mínimos documentados com base em medição real do cluster.
 | Contact point movido para provisioning (values.yaml) | Configuração via API é apagada em upgrades do Grafana |
 | Query Readiness: `1 - metric` em vez de `metric == 0` | Grafana Unified Alerting trata valor 0 como falsy — regra nunca disparava |
 | Cluster `camunda-platform-local` parado (docker stop) | Dois clusters Kind simultâneos consomem ~4 GiB extras — causava OOM durante inferência |
+| `HOSTNAME=0.0.0.0` no Keep frontend | Next.js 15 usa env var `HOSTNAME` para bind; Kubernetes injeta nome do pod → bind no IP do pod → port-forward recusado |
+| `OLLAMA_KEEP_ALIVE=-1` | Ollama descarregava modelo após 5min de inatividade → primeiro alerta falhava com 500 |
+| `structured_output_format: json` no workflow | Modelos ignoram instruções de formato no prompt; enforcement via API elimina markdown/duplicação |
+| `phi3.5:3.8b` como modelo padrão do lab | Melhor relação latência (36s)/qualidade(3/5)/RAM(2.2 GiB) entre os Tier 2; `mistral:7b` bloqueado por RAM no lab |
+| `mistral:7b` classificado como Tier 3 (EKS), não eliminado | Limitação de RAM local (3.9 GiB free) ≠ limitação intrínseca do modelo; em node EKS ≥ 12 GiB é candidato preferencial |
+| Script `run-model-comparison.sh` — busca em `alertname`/`scenario` | Keep armazena título raw do webhook Grafana em `name` (sem nome da regra); campos corretos são `alertname` e `scenario` |
+| `ast.literal_eval` no script de comparação | Keep persiste `ai_rca` como Python repr dict (aspas simples), não JSON; `json.loads` falha — `ast.literal_eval` converte corretamente |

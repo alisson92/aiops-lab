@@ -19,6 +19,8 @@ Valores baseados em medição real do cluster (CPU requests: ~1.6 vCPUs · RAM r
 > ⚠️ **2 vCPUs não é suficiente.** Com 2 vCPUs o scheduler esgota os CPU requests e os pods do Keep e K8sGPT ficam em `Pending`. Ajuste o hipervisor antes de prosseguir.
 >
 > ⚠️ **Disco:** cada modelo Ollama adicional ocupa ~1.6–4.4 GB. Reserve espaço extra se for testar a matriz completa de modelos.
+>
+> ℹ️ **VM Vagrant (Hyper-V):** o lab foi validado também em VM `generic/debian12` com 4 vCPUs / 8 GB RAM via `Vagrantfile` incluído no repositório. Execute `vagrant up` para provisionar automaticamente. O port-forward usa offset +10000 para evitar conflito com WSL2 (Keep API em `:18081`, frontend em `:13001`).
 
 **Pré-requisito zero — instale o `git` se ainda não tiver:**
 
@@ -278,7 +280,7 @@ Consulte a tabela de requisitos de hardware no início deste README e execute `m
 
 ## 14. Status
 
-**Bake-off concluído. ADR redigida. Lab reprodutível validado em WSL2 e Debian nativo.**
+**Bake-off concluído. ADR redigida. Lab reprodutível validado em WSL2, Debian nativo e VM Hyper-V. Comparativo de modelos LLM completo (3 modelos × 4 cenários).**
 
 - [x] Definição e refinamento do projeto (este README)
 - [x] Esqueleto do repositório + `CLAUDE.md`
@@ -292,15 +294,19 @@ Consulte a tabela de requisitos de hardware no início deste README e execute `m
 - [x] **Fase 1 — Keep** (keephq/keep v0.1.96) — score **3.5/5**
 - [x] **Fase 2** — Keep + K8sGPT em conjunto: papéis complementares identificados
 - [x] **Fase 3** — pulada (HolmesGPT eliminado)
-- [x] **Fase 4** — pontuação + ADR + roteiro de demo
-- [x] **Reprodutibilidade** — `make check → make setup → make pf` validado em WSL2 e Debian (4 vCPUs, 11 GB RAM)
+- [x] **Fase 4** — pontuação + ADR + roteiro de demo + briefing de apresentação
+- [x] **Qualidade do ai_rca** — cold start (`OLLAMA_KEEP_ALIVE=-1`) + formato (`structured_output_format: json`) + modelo (`phi3.5:3.8b`)
+- [x] **Comparativo de modelos** — 3 modelos × 4 cenários, 12/12 `ai_rca` válidos (`results/model-comparison-run2.json`)
+- [x] **Reprodutibilidade** — `make check → make setup → make pf` validado em WSL2, Debian (4 vCPUs, 11 GB RAM) e VM Vagrant Hyper-V (8 GB RAM)
 
-| Artefato | Link |
+| Artefato | Descrição |
 |---|---|
-| Progresso detalhado e decisões técnicas | [`PROGRESS.md`](PROGRESS.md) |
-| Evidências e scoring por cenário | [`results/scoring-matrix.md`](results/scoring-matrix.md) |
-| Decisão de adoção (ADR-001) | [`results/ADR-001-aiops-platform.md`](results/ADR-001-aiops-platform.md) |
-| Roteiro de demonstração ao vivo | [`results/demo-roteiro.md`](results/demo-roteiro.md) |
+| [`PROGRESS.md`](PROGRESS.md) | Progresso detalhado, decisões técnicas e histórico de achados |
+| [`results/scoring-matrix.md`](results/scoring-matrix.md) | Evidências por cenário, pontuação ponderada, comparativo de modelos |
+| [`results/ADR-001-aiops-platform.md`](results/ADR-001-aiops-platform.md) | Decisão de adoção com justificativa e próximos passos |
+| [`results/demo-roteiro.md`](results/demo-roteiro.md) | Roteiro de demonstração ao vivo (comandos + falas) |
+| [`results/briefing-apresentacao-2026-06-11.md`](results/briefing-apresentacao-2026-06-11.md) | Briefing executivo para apresentação ao time técnico |
+| [`results/model-comparison-run2.json`](results/model-comparison-run2.json) | Dados brutos do comparativo (3 modelos × 4 cenários, ai_rca válidos) |
 
 ---
 
