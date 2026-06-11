@@ -22,39 +22,108 @@ Valores baseados em medição real do cluster (CPU requests: ~1.6 vCPUs · RAM r
 >
 > ℹ️ **VM Vagrant (Hyper-V):** o lab foi validado também em VM `generic/debian12` com 4 vCPUs / 8 GB RAM via `Vagrantfile` incluído no repositório. Execute `vagrant up` para provisionar automaticamente. O port-forward usa offset +10000 para evitar conflito com WSL2 (Keep API em `:18081`, frontend em `:13001`).
 
-**Pré-requisito zero — instale o `git` se ainda não tiver:**
+**Pré-requisitos — do zero ao clone:**
+
+> Ponto de partida: terminal recém-instalado, sem nenhuma ferramenta. Expanda seu sistema operacional e siga a ordem exata antes de clonar o repositório.
+
+<details>
+<summary><b>Linux — Debian / Ubuntu / WSL2</b></summary>
 
 ```bash
-# Debian / Ubuntu / WSL2
-sudo apt-get install -y git
+# 1. Dependências base — git, make (necessário para "make check"), curl e python3
+sudo apt-get update && sudo apt-get install -y git make curl python3
 
-# Fedora / RHEL / CentOS
-sudo dnf install -y git
+# 2. Docker Engine
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+# Abra um novo terminal após este passo para que o grupo "docker" tenha efeito
 
-# macOS
-xcode-select --install
+# 3. kind — cria o cluster Kubernetes local
+KIND_VER=$(curl -sf https://api.github.com/repos/kubernetes-sigs/kind/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo /tmp/kind "https://kind.sigs.k8s.io/dl/v${KIND_VER}/kind-linux-amd64"
+sudo install -m 755 /tmp/kind /usr/local/bin/kind && rm /tmp/kind
+
+# 4. kubectl — CLI do Kubernetes
+curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -m 755 kubectl /usr/local/bin/kubectl && rm kubectl
+
+# 5. helm — gerenciador de pacotes Kubernetes
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# 6. helmfile — orquestra múltiplas releases Helm (release é .tar.gz, não binário direto)
+HF_VER=$(curl -sf https://api.github.com/repos/helmfile/helmfile/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"tag_name":.*"v\([^"]*\)".*/\1/')
+curl -Lo /tmp/helmfile.tar.gz \
+  "https://github.com/helmfile/helmfile/releases/download/v${HF_VER}/helmfile_${HF_VER}_linux_amd64.tar.gz"
+tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
+sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile
+rm /tmp/helmfile /tmp/helmfile.tar.gz
+
+# 7. k9s — gerenciador visual de cluster (opcional, mas recomendado)
+K9S_VER=$(curl -sf https://api.github.com/repos/derailed/k9s/releases/latest \
+  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+curl -Lo /tmp/k9s.tar.gz \
+  "https://github.com/derailed/k9s/releases/download/v${K9S_VER}/k9s_Linux_amd64.tar.gz"
+tar -xzf /tmp/k9s.tar.gz -C /tmp k9s
+sudo install -m 755 /tmp/k9s /usr/local/bin/k9s
+rm /tmp/k9s /tmp/k9s.tar.gz
 ```
 
-> Windows nativo não é suportado. Use WSL2 com Ubuntu ou Debian:
-> `wsl --install -d Ubuntu` (PowerShell como Administrador).
+</details>
+
+<details>
+<summary><b>macOS — Intel e Apple Silicon (M1/M2/M3)</b></summary>
 
 ```bash
+# 1. Xcode Command Line Tools — instala git, make e compiladores base
+#    Uma janela gráfica abrirá; aguarde a instalação concluir
+xcode-select --install
+
+# 2. Homebrew — gerenciador de pacotes do macOS
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Siga as instruções ao final: pode ser necessário adicionar o Homebrew ao PATH
+
+# 3. Docker Desktop — daemon Docker com suporte ao macOS
+brew install --cask docker
+open -a Docker   # aguarde o ícone aparecer na menu bar (pode levar ~1 min)
+
+# 4. Todas as ferramentas CLI via Homebrew — um único comando
+brew install kind kubectl helm helmfile k9s
+```
+
+> No Apple Silicon (M1/M2/M3), todas as ferramentas acima têm builds arm64 nativos — Rosetta não é necessário.
+
+</details>
+
+<details>
+<summary><b>Windows — via WSL2 obrigatório</b></summary>
+
+**Passo 1 — instalar WSL2 com Ubuntu** (PowerShell como Administrador):
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Reinicie o PC quando solicitado. Na primeira abertura do terminal Ubuntu, defina um nome de usuário e senha Linux.
+
+**Passo 2 — Docker Desktop com integração WSL2:**
+
+Baixe e instale o Docker Desktop for Windows (https://www.docker.com/products/docker-desktop/).
+Após instalar: _Settings → Resources → WSL Integration_ → ative para a distro Ubuntu.
+
+**Passo 3 — abra o terminal Ubuntu e siga as instruções de Linux acima.**
+
+> ⚠️ **Use exclusivamente o terminal Ubuntu (WSL2).** PowerShell e CMD não são suportados — os scripts do projeto são Bash.
+
+</details>
+
+```bash
+# Após instalar as ferramentas acima:
 git clone https://github.com/alisson92/aiops-lab.git && cd aiops-lab
 
-make check        # verifica ferramentas, RAM, disco e portas         (30s)
-make setup        # cria cluster + sobe todos os releases + bootstrap (~10 min)
-```
-
-> **`make check` apontou que o `helmfile` está faltando?**
-> Instale com os comandos abaixo (o release é um `.tar.gz` — não um binário direto):
-> ```bash
-> HF_VER=$(curl -sf https://api.github.com/repos/helmfile/helmfile/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name":.*"v\([^"]*\)".*/\1/')
-> curl -Lo /tmp/helmfile.tar.gz "https://github.com/helmfile/helmfile/releases/download/v${HF_VER}/helmfile_${HF_VER}_linux_amd64.tar.gz"
-> tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
-> sudo install -m 755 /tmp/helmfile /usr/local/bin/helmfile && rm /tmp/helmfile /tmp/helmfile.tar.gz
-> ```
-
-```bash
+make check        # valida ferramentas, RAM, disco e portas           (30s)
+make setup        # cria cluster + sobe todos os releases + bootstrap (~15 min)
 
 # uso diário — após reiniciar o PC
 make pf           # sobe todos os port-forwards e imprime as URLs
