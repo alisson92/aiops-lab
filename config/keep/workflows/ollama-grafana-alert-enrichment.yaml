@@ -1,32 +1,55 @@
 workflow:
   id: ollama-grafana-alert-enrichment
   name: Ollama Grafana Alert Enrichment
-  description: |
-    Analisa alertas do Grafana usando Ollama local (phi3.5:3.8b). Enriquece o alerta com RCA gerado por LLM.
+  description: "Enriquece alertas Grafana: eventos do pod via K8s API + RCA com Ollama phi3.5:3.8b."
   triggers:
     - type: alert
       filters:
         - key: source
           value: grafana
   steps:
+    - name: get-pod-events
+      # Busca eventos recentes do pod — mostra OOMKilled, BackOff, FailedPull, etc.
+      # get_logs foi removido: KubernetesProvider v0.1.96 não suporta previous=True,
+      # então logs ficam vazios em CrashLoop/OOMKilled; e o step falha com 404
+      # quando o pod é deletado após rollout undo, quebrando o workflow inteiro.
+      # __get_events(api_client, namespace, pod_name=None, sort_by=None)
+      provider:
+        config: "{{ providers.kubernetes-local }}"
+        type: kubernetes
+        with:
+          command_type: get_events
+          namespace: "{{ alert.labels.namespace }}"
+          pod_name: "{{ alert.labels.pod }}"
+
     - name: get-rca
       provider:
         config: "{{ providers.ollama-local }}"
         type: ollama
         with:
           prompt: >
-            You are a Kubernetes SRE. Analyze the alert below and respond with a JSON object.
+            You are a Kubernetes SRE. Analyze the alert and pod context below
+            and respond ONLY with a JSON object — no markdown, no explanation.
 
-            Alert: {{ alert.name }}
+            Alert name: {{ alert.name }}
             Description: {{ alert.description }}
             Severity: {{ alert.severity }}
+            Scenario: {{ alert.labels.scenario }}
+            Namespace: {{ alert.labels.namespace }}
+            Pod: {{ alert.labels.pod }}
 
-            Required JSON fields: root_cause (one sentence), immediate_action (specific kubectl command), prevention (one sentence)
+            Pod events:
+            {{ steps.get-pod-events.results }}
+
+            Required JSON fields:
+            - root_cause: one sentence explaining the most likely cause based on the context above
+            - immediate_action: exact kubectl command to investigate or remediate
+            - prevention: one sentence on how to prevent recurrence
           model: "phi3.5:3.8b"
-          max_tokens: 300
-          # Força JSON puro no nível da API do Ollama — elimina markdown e texto extra
-          # independente do comportamento padrão do modelo.
+          max_tokens: 400
+          # Força JSON puro no nível da API do Ollama.
           structured_output_format: "json"
+
   actions:
     - name: enrich-alert
       provider:
@@ -35,3 +58,7 @@ workflow:
           enrich_alert:
             - key: ai_rca
               value: "{{ steps.get-rca.results }}"
+            - key: k8s_events
+              value: "{{ steps.get-pod-events.results }}"
+            - key: affected_pod
+              value: "{{ alert.labels.pod }}"
