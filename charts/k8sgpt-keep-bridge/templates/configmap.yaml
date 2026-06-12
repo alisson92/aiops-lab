@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8sgpt-keep-bridge-script
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: k8sgpt-keep-bridge
+data:
+  bridge.py: |
+    #!/usr/bin/env python3
+    """K8sGPT → Keep bridge: lê Result CRDs e injeta como alertas no Keep.
+
+    Lógica de reconciliação:
+    1. Lista todos os Result CRDs ativos no namespace.
+    2. Para cada Result, faz POST "firing" no Keep (dedup por fingerprint).
+    3. Consulta o Keep por alertas k8sgpt ativos e resolve os que não têm
+       Result correspondente — indica que o K8sGPT já resolveu o problema.
+    """
+
+    import hashlib, json, os, ssl, sys
+    import urllib.request, urllib.error
+    from datetime import datetime, timezone
+
+    # ---------------------------------------------------------------------------
+    # Configuração via variáveis de ambiente (injetadas pelo CronJob)
+    # ---------------------------------------------------------------------------
+    KEEP_URL     = os.getenv("KEEP_URL",    "http://keep-backend:8080")
+    KEEP_API_KEY = os.getenv("KEEP_API_KEY", "keepappkey")
+    K8S_API      = "https://kubernetes.default.svc"
+    TOKEN_FILE   = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    CA_FILE      = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    NS_FILE      = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+    # ---------------------------------------------------------------------------
+    # Helpers K8s / Keep
+    # ---------------------------------------------------------------------------
+
+    def _ssl_ctx():
+        ctx = ssl.create_default_context(cafile=CA_FILE)
+        return ctx
+
+    def _k8s_token():
+        with open(TOKEN_FILE) as f:
+            return f.read().strip()
+
+    def k8s_get(path):
+        req = urllib.request.Request(
+            f"{K8S_API}{path}",
+            headers={"Authorization": f"Bearer {_k8s_token()}"}
+        )
+        with urllib.request.urlopen(req, context=_ssl_ctx()) as resp:
+            return json.loads(resp.read())
+
+    def keep_get(path):
+        req = urllib.request.Request(
+            f"{KEEP_URL}{path}",
+            headers={"Authorization": f"Bearer {KEEP_API_KEY}"}
+        )
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    def keep_post(path, payload):
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            f"{KEEP_URL}{path}",
+            data=data,
+            headers={
+                "Authorization": f"Bearer {KEEP_API_KEY}",
+                "Content-Type":  "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    # ---------------------------------------------------------------------------
+    # Lógica de fingerprint — determinística para deduplicação no Keep
+    # ---------------------------------------------------------------------------
+
+    def make_fingerprint(namespace, result_name):
+        """SHA-256 do identificador único do Result CRD."""
+        return hashlib.sha256(
+            f"k8sgpt-{namespace}-{result_name}".encode()
+        ).hexdigest()
+
+    # ---------------------------------------------------------------------------
+    # Conversão Result CRD → AlertDto
+    # ---------------------------------------------------------------------------
+
+    def result_to_alert(item, namespace, status="firing"):
+        spec  = item["spec"]
+        meta  = item["metadata"]
+
+        resource = spec.get("name", "unknown")
+        parts     = resource.split("/", 1)
+        res_ns    = parts[0] if len(parts) > 1 else namespace
+        res_name  = parts[1] if len(parts) > 1 else resource
+        kind      = spec.get("kind", "unknown")
+        errors    = spec.get("error", [])
+        error_txt = "; ".join(e.get("text", "") for e in errors)
+        details   = spec.get("details", "").strip() or "Sem análise disponível."
+        fp        = make_fingerprint(namespace, meta["name"])
+        now       = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+        return {
+            "name":         f"K8sGPT: {kind}/{res_name}",
+            "source":       ["k8sgpt"],
+            "severity":     "high",
+            "status":       status,
+            "description":  error_txt,
+            "lastReceived": now,
+            "fingerprint":  fp,
+            "labels": {
+                "kind":           kind,
+                "namespace":      res_ns,
+                "resource":       res_name,
+                "backend":        spec.get("backend", ""),
+                "k8sgpt_result":  meta["name"],
+                "source":         "k8sgpt",
+            },
+            "annotations": {
+                # K8sGPT já rodou gemma2:2b — reutilizamos a análise sem chamar Ollama de novo
+                "k8sgpt_analysis": details,
+                "k8sgpt_error":    error_txt,
+            }
+        }
+
+    # ---------------------------------------------------------------------------
+    # Main
+    # ---------------------------------------------------------------------------
+
+    def main():
+        with open(NS_FILE) as f:
+            namespace = f.read().strip()
+
+        # 1. Busca Results ativos
+        items = k8s_get(
+            f"/apis/core.k8sgpt.ai/v1alpha1/namespaces/{namespace}/results"
+        ).get("items", [])
+
+        active_fps = set()
+
+        if not items:
+            print("[INFO] Nenhum K8sGPT Result encontrado — cluster saudável.")
+        else:
+            print(f"[INFO] {len(items)} K8sGPT Result(s) encontrado(s).")
+
+        # 2. Posta cada Result como alerta "firing"
+        for item in items:
+            alert = result_to_alert(item, namespace, "firing")
+            active_fps.add(alert["fingerprint"])
+            try:
+                resp = keep_post("/alerts/event", alert)
+                print(f"[FIRING] {alert['name']}: {resp}")
+            except Exception as e:
+                print(f"[ERRO] Falha ao postar {alert['name']}: {e}", file=sys.stderr)
+
+        # 3. Reconcilia — resolve alertas keep que não têm mais um Result
+        try:
+            raw = keep_get("/alerts")
+            all_alerts = raw if isinstance(raw, list) else raw.get("alerts", raw.get("data", []))
+            stale = [
+                a for a in all_alerts
+                if "k8sgpt" in (a.get("source") or [])
+                and a.get("status") == "firing"
+                and a.get("fingerprint", "") not in active_fps
+            ]
+            for a in stale:
+                resolve = {
+                    "name":         a["name"],
+                    "source":       ["k8sgpt"],
+                    "severity":     a.get("severity", "high"),
+                    "status":       "resolved",
+                    "fingerprint":  a["fingerprint"],
+                    "lastReceived": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                }
+                try:
+                    resp = keep_post("/alerts/event", resolve)
+                    print(f"[RESOLVED] {a['name']}: {resp}")
+                except Exception as e:
+                    print(f"[ERRO] Falha ao resolver {a['name']}: {e}", file=sys.stderr)
+        except Exception as e:
+            print(f"[AVISO] Reconciliação falhou: {e}", file=sys.stderr)
+
+
+    if __name__ == "__main__":
+        main()

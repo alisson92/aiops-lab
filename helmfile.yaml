@@ -107,6 +107,18 @@ releases:
     needs:
       - k8sgpt-operator
 
+  # Bridge Tier A: CronJob que lê K8sGPT Result CRDs e injeta como alertas no Keep.
+  # Executa a cada minuto; reconcilia firing/resolved automaticamente.
+  - name: k8sgpt-keep-bridge
+    namespace: "{{ .Values.namespace }}"
+    chart: charts/k8sgpt-keep-bridge
+    version: "0.1.0"
+    values:
+      - values/k8sgpt-keep-bridge.yaml
+    needs:
+      - keep
+      - k8sgpt-config
+
   # HolmesGPT — eliminado no bake-off (tool-calling inviável em CPU-only).
   # Mantido aqui documentado; installed: false impede deploy acidental.
   - name: holmesgpt
