@@ -27,13 +27,13 @@ workflow:
         type: ollama
         with:
           prompt: >
-            You are a Kubernetes SRE. Analyze the alert and pod events below.
+            You are a Kubernetes SRE. Analyze the alert and pod events below
+            and respond ONLY with a JSON object — no markdown, no explanation.
 
-            Respond with ONLY this JSON object — no other text, no markdown, no explanation outside the JSON:
-            {"root_cause": "one sentence", "immediate_action": "kubectl command", "prevention": "one sentence"}
-
-            The keys MUST be exactly: root_cause, immediate_action, prevention.
-            Use the actual pod name and namespace in immediate_action.
+            Required JSON fields:
+            - root_cause: one sentence explaining the most likely cause
+            - immediate_action: exact kubectl command to investigate or remediate
+            - prevention: one sentence on how to prevent recurrence
 
             Scenario: {{ alert.labels.scenario }}
             Namespace: {{ alert.labels.namespace }}
@@ -43,8 +43,7 @@ workflow:
             Pod events:
             {{ steps.get-pod-events.results }}
           model: "phi3.5:3.8b"
-          # 200 tokens são suficientes para o JSON de 3 campos — menos espaço = menos hallucination.
-          max_tokens: 200
+          max_tokens: 400
           structured_output_format: "json"
 
   actions:
