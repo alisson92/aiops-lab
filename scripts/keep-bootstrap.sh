@@ -35,7 +35,7 @@ KEEP_SVC="keep-backend"
 LOCAL_PORT="18081"  # porta local temporária (evita conflito com pf existente)
 KEEP_API="http://localhost:${LOCAL_PORT}"
 API_KEY="${KEEP_API_KEY:-keepappkey}"
-WORKFLOW_FILE="config/keep/workflows/ollama-grafana-alert-enrichment.yaml"
+WORKFLOW_FILE="workflows/grafana-rca.yaml"
 TIMEOUT=120         # tempo de espera para o healthcheck responder após o pod estar Ready
 
 # ─── port-forward temporário ─────────────────────────────────────────────────
@@ -237,7 +237,7 @@ import_workflow() {
     python3 -c "
 import sys, json
 workflows = json.load(sys.stdin)
-match = next((w for w in workflows if w.get('name') == 'Ollama Grafana Alert Enrichment'), None)
+match = next((w for w in workflows if w.get('name') == 'Grafana RCA Enrichment'), None)
 print(match.get('id','') if match else '')
 " 2>/dev/null || echo "")
 

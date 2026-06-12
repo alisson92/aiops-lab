@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: workload-vitima
-  namespace: {{ .Release.Namespace }}
+  namespace: aiops-lab
   labels:
     app: workload-vitima
     tier: test
@@ -22,7 +22,6 @@ spec:
       containers:
         - name: app
           # nginx-unprivileged: roda como user 101 (non-root), escuta em 8080.
-          # O nginx padrão exige root e porta 80 — incompatível com runAsNonRoot: true.
           image: nginxinc/nginx-unprivileged:1.27
           ports:
             - containerPort: 8080
@@ -45,3 +44,18 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workload-vitima
+  namespace: aiops-lab
+  labels:
+    app: workload-vitima
+spec:
+  selector:
+    app: workload-vitima
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP

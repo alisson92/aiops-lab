@@ -1,7 +1,0 @@
-apiVersion: v2
-name: k8sgpt-keep-bridge
-description: >
-  Bridge que sincroniza K8sGPT Result CRDs com o Keep como alertas.
-  Executa um CronJob que lê results.core.k8sgpt.ai e posta no Keep via REST.
-type: application
-version: 0.1.0

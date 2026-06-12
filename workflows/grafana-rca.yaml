@@ -1,7 +1,9 @@
 workflow:
-  id: ollama-grafana-alert-enrichment
-  name: Ollama Grafana Alert Enrichment
-  description: "Enriquece alertas Grafana: eventos do pod via K8s API + RCA com Ollama phi3.5:3.8b."
+  id: grafana-rca-enrichment
+  name: Grafana RCA Enrichment
+  description: "Enriquece alertas do Grafana com eventos do pod e RCA gerado pelo Ollama (gemma2:2b)."
+  # Throttle por fingerprint: evita chamar o Ollama múltiplas vezes para o mesmo alerta.
+  throttle: 1800
   triggers:
     - type: alert
       filters:
@@ -9,10 +11,8 @@ workflow:
           value: grafana
   steps:
     - name: get-pod-events
-      # Busca eventos recentes do pod — mostra OOMKilled, BackOff, FailedPull, etc.
-      # get_logs foi removido: KubernetesProvider v0.1.96 não suporta previous=True,
-      # então logs ficam vazios em CrashLoop/OOMKilled; e o step falha com 404
-      # quando o pod é deletado após rollout undo, quebrando o workflow inteiro.
+      # Busca eventos recentes do pod (OOMKilled, BackOff, FailedPull, etc.).
+      # Requer: provider kubernetes-local instalado + manifests/keep-rbac.yaml aplicado.
       provider:
         config: "{{ providers.kubernetes-local }}"
         type: kubernetes
@@ -22,6 +22,7 @@ workflow:
           pod_name: "{{ alert.labels.pod }}"
 
     - name: get-rca
+      # Requer: provider ollama-local instalado apontando para o Service do Ollama.
       provider:
         config: "{{ providers.ollama-local }}"
         type: ollama
@@ -42,7 +43,7 @@ workflow:
 
             Pod events:
             {{ steps.get-pod-events.results }}
-          model: "phi3.5:3.8b"
+          model: "gemma2:2b"
           max_tokens: 400
           structured_output_format: "json"
 
@@ -58,7 +59,3 @@ workflow:
               value: "{{ steps.get-pod-events.results }}"
             - key: affected_pod
               value: "{{ alert.labels.pod }}"
-
-    # notify-teams removido: Keep é o hub central de gestão de alertas.
-    # Notificação externa (Teams) é responsabilidade do contact point do Grafana
-    # quando necessário — não do workflow de enriquecimento.

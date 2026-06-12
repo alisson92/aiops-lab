@@ -1,12 +1,12 @@
-# helmfile.yaml — ponto central de gerenciamento de releases
+# helmfile.yaml — orquestra os três releases do lab
 #
 # Uso:
-#   helmfile -e local sync                              # sobe tudo
-#   helmfile -e local apply                             # aplica só o diff (mais seguro)
-#   helmfile -e local -l name=keep sync                 # sobe apenas um release
+#   helmfile -e local sync          # instala/atualiza tudo
+#   helmfile -e local apply         # aplica apenas o diff (mais seguro)
+#   helmfile -e local diff          # visualiza o que seria alterado
+#   helmfile -e local -l name=keep sync   # opera em um release isolado
 #
-# Pós-deploy obrigatório: make bootstrap
-#   Registra o provider Ollama e o workflow de enriquecimento no Keep via API.
+# Após o primeiro deploy: kubectl apply -f manifests/ && bash scripts/keep-bootstrap.sh
 
 repositories:
   - name: prometheus-community
@@ -15,10 +15,6 @@ repositories:
     url: https://helm.otwld.com/
   - name: keephq
     url: https://keephq.github.io/helm-charts
-  # 🔒 Tier B — k8sgpt-operator instala CRDs e ClusterRoles cluster-scoped.
-  # Requer aprovação explícita do cliente antes de qualquer deploy em produção.
-  - name: k8sgpt
-    url: https://charts.k8sgpt.ai
 
 environments:
   local:
@@ -32,101 +28,31 @@ environments:
 
 releases:
 
-  # ─────────────────────────────────────────────────────────────
-  # Camada 2 — substrato de métricas e alertas (pré-requisito)
-  # ─────────────────────────────────────────────────────────────
+  # ── 1. Métricas e alertas ──────────────────────────────────────────────────
   - name: kube-prometheus-stack
     namespace: "{{ .Values.namespace }}"
     createNamespace: true
     chart: prometheus-community/kube-prometheus-stack
-    version: "86.1.0"   # app: v0.91.0
+    version: "86.1.0"
     values:
       - values/kube-prometheus-stack.yaml
 
-  # ─────────────────────────────────────────────────────────────
-  # Camada 3 — inferência LLM compartilhada (CPU-only, offline)
-  # ─────────────────────────────────────────────────────────────
+  # ── 2. Inferência LLM (CPU-only, offline) ─────────────────────────────────
   - name: ollama
     namespace: "{{ .Values.namespace }}"
     chart: ollama-helm/ollama
-    version: "1.57.0"   # app: 0.24.0
+    version: "1.57.0"
     values:
       - values/ollama.yaml
     needs:
       - kube-prometheus-stack
 
-  # ─────────────────────────────────────────────────────────────
-  # Camada 4 — workload-vítima (alvo dos cenários de falha)
-  # ─────────────────────────────────────────────────────────────
-  - name: workload-vitima
-    namespace: "{{ .Values.namespace }}"
-    chart: charts/workload-vitima
-    version: "0.1.0"
-    needs:
-      - kube-prometheus-stack
-
-  # ─────────────────────────────────────────────────────────────
-  # Candidatos AIOps
-  # ─────────────────────────────────────────────────────────────
-
+  # ── 3. Plataforma de alertas ───────────────────────────────────────────────
   - name: keep
     namespace: "{{ .Values.namespace }}"
     chart: keephq/keep
-    version: "0.1.96"   # app: 0.52.1
+    version: "0.1.96"
     values:
-      - values/keep-lab.yaml
+      - values/keep.yaml
     needs:
       - kube-prometheus-stack
-
-  # RBAC namespaced (Tier A) para o backend do Keep acessar pods/log e events.
-  # Necessário para o step get-pod-context do workflow de enriquecimento de alertas.
-  - name: keep-rbac
-    namespace: "{{ .Values.namespace }}"
-    chart: charts/keep-rbac
-    version: "0.1.0"
-    needs:
-      - keep
-
-  # 🔒 Tier B — instala CRDs e ClusterRoles cluster-scoped.
-  # Para produção: requer aprovação explícita do cliente antes do deploy.
-  - name: k8sgpt-operator
-    namespace: "{{ .Values.namespace }}"
-    chart: k8sgpt/k8sgpt-operator
-    version: "0.2.27"   # app: 0.2.27
-    values:
-      - values/k8sgpt.yaml
-    needs:
-      - ollama
-
-  # CR que instrui o operator a analisar o cluster com gemma2:2b via Ollama.
-  # Depende do CRD instalado pelo k8sgpt-operator acima.
-  - name: k8sgpt-config
-    namespace: "{{ .Values.namespace }}"
-    chart: charts/k8sgpt-config
-    version: "0.1.0"
-    needs:
-      - k8sgpt-operator
-
-  # Bridge Tier A: CronJob que lê K8sGPT Result CRDs e injeta como alertas no Keep.
-  # Executa a cada minuto; reconcilia firing/resolved automaticamente.
-  - name: k8sgpt-keep-bridge
-    namespace: "{{ .Values.namespace }}"
-    chart: charts/k8sgpt-keep-bridge
-    version: "0.1.0"
-    values:
-      - values/k8sgpt-keep-bridge.yaml
-    needs:
-      - keep
-      - k8sgpt-config
-
-  # HolmesGPT — eliminado no bake-off (tool-calling inviável em CPU-only).
-  # Mantido aqui documentado; installed: false impede deploy acidental.
-  - name: holmesgpt
-    installed: false
-    namespace: "{{ .Values.namespace }}"
-    chart: robusta/holmes
-    version: "0.31.1"
-    values:
-      - values/holmesgpt.yaml
-    needs:
-      - ollama
