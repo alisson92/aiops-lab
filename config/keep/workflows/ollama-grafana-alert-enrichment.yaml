@@ -59,18 +59,6 @@ workflow:
             - key: affected_pod
               value: "{{ alert.labels.pod }}"
 
-    - name: notify-teams
-      # Envia payload estruturado para o Power Automate formatar o Adaptive Card.
-      # Cada fact é um campo independente — PA parseia por name, não por string combinada.
-      # Keep não suporta acesso aninhado: steps.get-rca.results vai como string em rca_raw.
-      provider:
-        type: teams
-        config: "{{ providers.teams-webhook }}"
-        with:
-          typeCard: "MessageCard"
-          themeColor: "D9534F"
-          # message → campo "text" no MessageCard → triggerBody()?['text'] no Power Automate
-          # sections → só campos seguros (strings simples, sem dict Python do Ollama)
-          # rca_raw sai do sections para evitar que o dict Python quebre o parse JSON do Keep
-          message: "{{ steps.get-rca.results }}"
-          sections: '[{"facts": [{"name": "scenario","value": "{{ alert.labels.scenario }}"},{"name": "pod","value": "{{ alert.labels.pod }}"},{"name": "namespace","value": "{{ alert.labels.namespace }}"},{"name": "severity","value": "{{ alert.severity }}"}]}]'
+    # notify-teams removido: Keep é o hub central de gestão de alertas.
+    # Notificação externa (Teams) é responsabilidade do contact point do Grafana
+    # quando necessário — não do workflow de enriquecimento.
